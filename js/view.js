@@ -10,7 +10,7 @@ function setBg(on){$("header").inert=on;$("#app").inert=on}
 function openLayer(ov,box,target){if(!ov.classList.contains("on"))lastFocus=document.activeElement;ov.classList.add("on");setBg(true);(target||box.querySelector("button,input:not([disabled])")||box).focus()}
 function closeLayer(ov){ov.classList.remove("on");if(!document.querySelector(".ov.on")){setBg(false);if(lastFocus&&document.contains(lastFocus))lastFocus.focus()}}
 $("#hlogo").src=LOGO;$("#flogo").src=LOGO;document.head.insertAdjacentHTML("beforeend",`<link rel="icon" href="${LOGO}">`);
-function header(){$("#nHome").toggleAttribute("aria-current",false);$("#nCat").toggleAttribute("aria-current",false);$("#nHelp").toggleAttribute("aria-current",false);if(view==="help")$("#nHelp").setAttribute("aria-current","page");if(view==="home")$("#nHome").setAttribute("aria-current","page");if(view==="cat")$("#nCat").setAttribute("aria-current","page");["fav","acct"].forEach(v=>{const b=$(v==="fav"?"#nFav":"#nOrd");view===v?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current")});const ub=$("#userBtn");ub.innerHTML=USER?avatarHtml(ME,24)+"<span>"+esc((userName()||"Mi cuenta").split(" ")[0])+"</span>":"Ingresar";ub.setAttribute("aria-label",USER?"Mi perfil":"Iniciar sesión o crear cuenta");ub.onclick=()=>go(USER?"perfil":"login");const n=count();$("#cartBtn").textContent=`Carrito: ${n} ${n===1?"ítem":"ítems"}`}
+function header(){$("#nHome").toggleAttribute("aria-current",false);$("#nCat").toggleAttribute("aria-current",false);$("#nHelp").toggleAttribute("aria-current",false);if(view==="help")$("#nHelp").setAttribute("aria-current","page");if(view==="home")$("#nHome").setAttribute("aria-current","page");if(view==="cat")$("#nCat").setAttribute("aria-current","page");["fav","acct"].forEach(v=>{const b=$(v==="fav"?"#nFav":"#nOrd");view===v?b.setAttribute("aria-current","page"):b.removeAttribute("aria-current")});const ub=$("#userBtn");ub.innerHTML=USER?avatarHtml(ME,24)+"<span>"+esc((userName()||"Mi cuenta").split(" ")[0])+"</span>":"Ingresar";ub.setAttribute("aria-label",USER?"Mi perfil":"Iniciar sesión o crear cuenta");ub.setAttribute("aria-expanded","false");ub.onclick=e=>{e.stopPropagation();USER?toggleUserMenu():go("login")};fillUserMenu();const n=count();$("#cartBtn").textContent=`Carrito: ${n} ${n===1?"ítem":"ítems"}`}
 function help(){
  const q=(t,b)=>`<details class="panel"><summary>${t}</summary><div style="margin-top:10px;color:var(--mute)">${b}</div></details>`;
  $("#app").innerHTML=`<h1 class="h2" tabindex="-1">Ayuda</h1><p class="sub">Respuestas rápidas para comprar en STELLAR VAULT.</p><div class="helpg">
@@ -243,3 +243,12 @@ function qrpay(){
  <a class="btn" style="display:grid;place-items:center;text-decoration:none" href="${esc(PAGO.url)}" target="_blank" rel="noopener">Abrir la pantalla de pago en este dispositivo</a>
  <button class="btn" style="margin-top:10px;background:none;color:var(--acc);border:2px solid var(--acc)" onclick="cancelQr()">Cancelar pago</button>
  <p class="foot">Modo de prueba: es una simulación, no se cobra dinero real.</p></div></div>`}
+
+/* ---- Menú de la cuenta (perfil y cerrar sesión) ---- */
+function fillUserMenu(){
+ const m=$("#uMenu");if(!m)return;m.hidden=true;
+ m.innerHTML=USER?`<div class="uhead"><b>${esc(userName()||"Mi cuenta")}</b><small>${esc(USER)}</small></div>
+ <button role="menuitem" onclick="closeUserMenu();go('perfil')">👤 Mi perfil</button>
+ <hr><button role="menuitem" class="out" onclick="closeUserMenu();logout()">⎋ Cerrar sesión</button>`:""}
+function closeUserMenu(){const m=$("#uMenu");if(m&&!m.hidden){m.hidden=true;$("#userBtn").setAttribute("aria-expanded","false")}}
+function toggleUserMenu(){const m=$("#uMenu"),abrir=m.hidden;m.hidden=!abrir;$("#userBtn").setAttribute("aria-expanded",String(abrir));if(abrir){const f=m.querySelector("button");f&&f.focus()}}

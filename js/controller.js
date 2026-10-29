@@ -117,7 +117,7 @@ function logout(){endSession();go("home");toast("Cerraste sesión",null)}
 function reorder(i){const o=ordersOf()[i];if(!o)return;o.items.forEach(it=>{const k=P.findIndex(p=>p.dbId===it.id);if(k>=0)add(k,it.q)})}
 
 document.addEventListener("keydown",e=>{
- if(e.key==="Escape"){closeCart();return}
+ if(e.key==="Escape"){const abierto=$("#uMenu")&&!$("#uMenu").hidden;closeUserMenu();if(abierto)$("#userBtn").focus();closeCart();return}
  if(e.key!=="Tab")return;
  const ov=document.querySelector(".ov.on");if(!ov)return;
  const els=[...ov.querySelectorAll('button,input,a[href]')].filter(x=>!x.disabled&&x.offsetParent!==null);
@@ -126,6 +126,9 @@ document.addEventListener("keydown",e=>{
  if(e.shiftKey&&(document.activeElement===f||out)){e.preventDefault();l.focus()}
  else if(!e.shiftKey&&(document.activeElement===l||out)){e.preventDefault();f.focus()}
 });
+
+document.addEventListener("click",e=>{if(!e.target.closest(".uwrap"))closeUserMenu()});
+document.addEventListener("focusin",e=>{if(!e.target.closest(".uwrap"))closeUserMenu()});
 
 /* --- Arranque: primero se cargan los datos desde la base de datos --- */
 (async function init(){
