@@ -61,6 +61,13 @@ CREATE TABLE usuarios (
                 CHECK (email LIKE '_%@_%._%' AND email NOT LIKE '% %' AND length(email) <= 120),
   password_hash TEXT NOT NULL CHECK (length(password_hash) >= 64),
   verificado    INTEGER NOT NULL DEFAULT 0 CHECK (verificado IN (0,1)),
+  registro      TEXT NOT NULL DEFAULT 'correo' CHECK (registro IN ('correo','google')),
+  telefono      TEXT CHECK (telefono IS NULL OR (telefono NOT GLOB '*[^0-9]*' AND length(telefono) BETWEEN 7 AND 10)),
+  provincia_id  INTEGER REFERENCES provincias(id),
+  ciudad_id     INTEGER REFERENCES ciudades(id),
+  direccion     TEXT CHECK (direccion IS NULL OR length(trim(direccion)) >= 5),
+  foto_google   TEXT CHECK (foto_google IS NULL OR (foto_google LIKE 'https://%' AND length(foto_google) < 500)),
+  foto_subida   TEXT CHECK (foto_subida IS NULL OR (foto_subida LIKE 'data:image/%;base64,%' AND length(foto_subida) <= 150000)),
   creado        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
@@ -105,6 +112,7 @@ CREATE TABLE pedidos (
   envio         REAL NOT NULL CHECK (envio >= 0),
   total         REAL NOT NULL CHECK (total > 0),
   pagado        INTEGER NOT NULL DEFAULT 0 CHECK (pagado IN (0,1)),
+  estado        TEXT NOT NULL DEFAULT 'confirmado' CHECK (estado IN ('pendiente_pago','confirmado','cancelado')),
   fecha         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   CHECK (abs(total - (subtotal + envio)) < 0.005),
   CHECK (entrega = 'retiro' OR (provincia_id IS NOT NULL AND ciudad_id IS NOT NULL AND length(trim(direccion)) >= 5)),
@@ -119,6 +127,21 @@ CREATE TABLE pedido_items (
   cantidad        INTEGER NOT NULL CHECK (cantidad BETWEEN 1 AND 99),
   precio_unitario REAL NOT NULL CHECK (precio_unitario > 0),
   UNIQUE (pedido_id, producto_id)
+);
+
+-- Un registro por pedido: aquí vive el estado del cobro (botón DeUna, QR DeUna o pago en físico).
+CREATE TABLE pagos (
+  id        INTEGER PRIMARY KEY,
+  pedido_id INTEGER NOT NULL UNIQUE REFERENCES pedidos(id) ON DELETE CASCADE,
+  token     TEXT NOT NULL UNIQUE CHECK (length(token) = 48),
+  metodo    TEXT NOT NULL CHECK (metodo IN ('fisico','deuna_boton','deuna_qr')),
+  monto     REAL NOT NULL CHECK (monto > 0),
+  estado    TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobado','rechazado','cancelado','expirado')),
+  motivo    TEXT,
+  creado    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  expira    TEXT NOT NULL,
+  resuelto  TEXT,
+  CHECK (estado = 'pendiente' OR resuelto IS NOT NULL)
 );
 
 CREATE TABLE comentarios (
@@ -136,7 +159,7 @@ CREATE INDEX idx_comentarios_producto ON comentarios(producto_id);
 -- tipo: regex | minlen | maxlen | requerido | rango     condicion: NULL o 'campo=valor' / 'campo<>valor'
 CREATE TABLE reglas_validacion (
   id        INTEGER PRIMARY KEY,
-  ambito    TEXT NOT NULL CHECK (ambito IN ('checkout','registro','login','comentario')),
+  ambito    TEXT NOT NULL CHECK (ambito IN ('checkout','registro','login','comentario','perfil','clave')),
   campo     TEXT NOT NULL CHECK (length(campo) >= 2),
   tipo      TEXT NOT NULL CHECK (tipo IN ('regex','minlen','maxlen','requerido','rango')),
   valor     TEXT,
@@ -149,6 +172,15 @@ CREATE TABLE reglas_validacion (
 -- La ciudad debe pertenecer a la provincia elegida.
 CREATE TRIGGER trg_pedido_ciudad_provincia
 BEFORE INSERT ON pedidos
+WHEN NEW.ciudad_id IS NOT NULL
+BEGIN
+  SELECT RAISE(ABORT, 'La ciudad no pertenece a la provincia')
+  WHERE (SELECT provincia_id FROM ciudades WHERE id = NEW.ciudad_id) IS NOT NEW.provincia_id;
+END;
+
+-- La ciudad del perfil debe pertenecer a su provincia.
+CREATE TRIGGER trg_usuario_ciudad_provincia
+BEFORE UPDATE OF ciudad_id, provincia_id ON usuarios
 WHEN NEW.ciudad_id IS NOT NULL
 BEGIN
   SELECT RAISE(ABORT, 'La ciudad no pertenece a la provincia')
@@ -178,4 +210,22 @@ BEFORE INSERT ON pedido_items
 BEGIN
   SELECT RAISE(ABORT, 'El precio no coincide con el producto')
   WHERE NEW.precio_unitario <> (SELECT precio FROM productos WHERE id = NEW.producto_id);
+END;
+
+-- Si un pedido se cancela (pago rechazado, cancelado o vencido) se devuelve el stock.
+CREATE TRIGGER trg_pedido_cancelado
+AFTER UPDATE OF estado ON pedidos
+WHEN NEW.estado = 'cancelado' AND OLD.estado <> 'cancelado'
+BEGIN
+  UPDATE productos
+  SET stock = stock + (SELECT cantidad FROM pedido_items WHERE pedido_id = NEW.id AND producto_id = productos.id)
+  WHERE preventa IS NULL AND id IN (SELECT producto_id FROM pedido_items WHERE pedido_id = NEW.id);
+END;
+
+-- Un pedido cancelado no puede reactivarse.
+CREATE TRIGGER trg_pedido_no_reactivar
+BEFORE UPDATE OF estado ON pedidos
+WHEN OLD.estado = 'cancelado' AND NEW.estado <> 'cancelado'
+BEGIN
+  SELECT RAISE(ABORT, 'Un pedido cancelado no se puede reactivar');
 END;

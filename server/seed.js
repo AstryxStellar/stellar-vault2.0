@@ -72,6 +72,10 @@ const REGLAS = [
   ['registro', 'nombre', 'minlen', '2', null, 'Escribe tu nombre.'],
   ['registro', 'email', 'regex', '^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$', null, 'Ingresa un correo válido, por ejemplo nombre@correo.com.'],
   ['registro', 'password', 'minlen', '6', null, 'La contraseña debe tener al menos 6 caracteres.'],
+  ['perfil', 'nombre', 'minlen', '2', null, 'Escribe tu nombre.'],
+  ['perfil', 'telefono', 'regex', '^(\\D*(\\d\\D*){7,10})?$', null, 'Ingresa un teléfono de 7 a 10 dígitos (o déjalo vacío).'],
+  ['perfil', 'addr', 'regex', '^(.{5,})?$', null, 'La dirección debe tener al menos 5 caracteres.'],
+  ['clave', 'nueva', 'minlen', '6', null, 'La nueva contraseña debe tener al menos 6 caracteres.'],
   ['login', 'email', 'regex', '^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$', null, 'Ingresa un correo válido, por ejemplo nombre@correo.com.'],
   ['comentario', 'texto', 'minlen', '3', null, 'Escribe tu comentario.'],
   ['comentario', 'texto', 'maxlen', '500', null, 'El comentario no puede pasar de 500 caracteres.'],
@@ -156,6 +160,9 @@ function seed(db, hashPassword) {
         subtotal, envio, Math.round((subtotal + envio) * 100) / 100, deuna ? 1 : 0,
         new Date(Date.UTC(2026, 8, 1 + i * 2, 15, 30)).toISOString()).lastInsertRowid);
       items.forEach(it => ins('INSERT INTO pedido_items(pedido_id,producto_id,cantidad,precio_unitario) VALUES (?,?,?,?)', ped, it.id, it.q, it.precio));
+      const fechaP = new Date(Date.UTC(2026, 8, 1 + i * 2, 15, 30)).toISOString();
+      ins('INSERT INTO pagos(pedido_id,token,metodo,monto,estado,creado,expira,resuelto) VALUES (?,?,?,?,?,?,?,?)', ped, require('crypto').randomBytes(24).toString('hex'),
+        deuna ? (i % 4 === 0 ? 'deuna_qr' : 'deuna_boton') : 'fisico', Math.round((subtotal + envio) * 100) / 100, deuna ? 'aprobado' : 'pendiente', fechaP, fechaP, deuna ? fechaP : null);
     }
 
     // Comentarios
