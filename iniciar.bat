@@ -2,6 +2,10 @@
 chcp 65001 >nul
 title STELLAR VAULT - servidor
 cd /d "%~dp0"
+if not exist node_modules (
+  echo Instalando dependencias por unica vez...
+  call npm install
+)
 echo Iniciando STELLAR VAULT...
 echo Deja esta ventana abierta mientras uses la tienda. Para apagarla, cierra la ventana.
 echo.

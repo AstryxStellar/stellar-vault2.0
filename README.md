@@ -1,33 +1,46 @@
 # STELLAR VAULT
 
-Tienda de mangas, novelas ligeras y figuras. Node.js + SQLite, sin dependencias.
+Tienda de mangas, novelas ligeras y figuras. Node.js + SQLite (archivo local) o Turso (nube).
 
 ## Probarla en tu compu
-Doble clic en `iniciar.bat` (o `npm start`) y abre http://localhost:3000.
+Doble clic en `iniciar.bat` (la primera vez instala las dependencias) y se abre http://localhost:3000.
+Sin configuración extra, usa un archivo local `server/tienda.db`.
 
 ## Publicarla con un link (para entrar desde cualquier dispositivo)
 
 ### 1. Subir el código a GitHub
-1. Crea una cuenta en https://github.com y un repositorio nuevo (ej. `stellar-vault`).
-2. Sube **todo el contenido de esta carpeta** (el archivo `.gitignore` ya evita subir la base de datos y tus claves).
+Sube el contenido de la carpeta (incluido `package.json` y `package-lock.json`). **No** subas `node_modules`
+(el `.gitignore` ya lo evita) ni `server/tienda.db` ni `server/.env`.
 
-### 2. Correo de verificación con Brevo (gratis)
-1. Crea una cuenta en https://www.brevo.com.
-2. En *Senders & IP* agrega y verifica **un correo remitente** tuyo (te llega un mensaje de confirmación).
-3. En *SMTP & API → API keys* crea una clave y cópiala.
+### 2. Base de datos en la nube con Turso (para que los datos NO se borren)
+Render gratis reinicia el disco cada vez que la tienda se duerme o se actualiza; por eso los comentarios, fotos y
+usuarios nuevos se perdían. Turso guarda la base fuera de Render.
+1. Crea una cuenta en https://turso.tech (gratis).
+2. Crea una base de datos (cualquier nombre, por ejemplo `stellar-vault`).
+3. Copia su **URL** (empieza con `libsql://`) y crea un **token de acceso** para esa base (opción de crear token / Generate token).
+4. En Render → tu servicio → **Environment**, agrega:
+   - `TURSO_DATABASE_URL` = la URL `libsql://...`
+   - `TURSO_AUTH_TOKEN` = el token
+5. Guarda y espera el redeploy. La primera vez crea las tablas y carga los datos de ejemplo; desde ahí los datos se conservan.
 
-### 3. Publicar en Render (gratis)
-1. Crea una cuenta en https://render.com e ingresa con GitHub.
-2. *New → Blueprint* (o *Web Service*) y elige tu repositorio. Render lee `render.yaml`.
-3. En las variables de entorno completa:
-   - `BREVO_API_KEY` = la clave de Brevo
-   - `MAIL_FROM` = `STELLAR VAULT <tu-correo-verificado@ejemplo.com>`
-4. Al terminar, Render te da el link `https://stellar-vault-xxxx.onrender.com`. Ese es el link para compartir.
+Si cambias el esquema (`server/schema.sql`) y quieres empezar de cero, pon `RESET_DB=1` en Render, espera el deploy,
+y **quita** esa variable después (si la dejas, se borra todo en cada reinicio).
 
-### 4. Que no se "duerma"
-El plan gratis de Render apaga la página tras ~15 min sin visitas y tarda ~1 min en despertar.
-Para evitarlo crea un monitor gratis en https://uptimerobot.com: tipo HTTP(s), URL `https://TU-LINK/api/health`, cada 5 minutos.
+### 3. Correo de verificación con Brevo (gratis)
+1. Crea una cuenta en https://www.brevo.com y verifica **un correo remitente**.
+2. Crea una clave de API con permiso *Transactional email* (empieza con `xkeysib-`).
+3. En Render agrega `BREVO_API_KEY` y `MAIL_FROM` (`STELLAR VAULT <tu-correo-verificado@ejemplo.com>`).
 
-### Importante
-- En el plan gratis los datos (usuarios y pedidos nuevos) se reinician a los de ejemplo cuando el servicio se reinicia.
-- Usuarios de ejemplo ya verificados: `ana.perez@correo.com` / `Demo1234`.
+### 4. Inicio de sesión con Google (opcional)
+Crea un ID de cliente OAuth (aplicación web) en Google Cloud, agrega tu link de Render como origen autorizado de
+JavaScript y pon el ID en la variable `GOOGLE_CLIENT_ID`.
+
+### 5. Publicar en Render (gratis)
+New → Web Service → tu repositorio. Build `npm install`, Start `npm start`, Health Check `/api/health`,
+y las variables de entorno de arriba (`NODE_VERSION` = `24`).
+
+### 6. Que no se "duerma"
+Monitor gratis en https://uptimerobot.com a `https://TU-LINK/api/health` cada 5 minutos.
+
+### Usuarios de ejemplo
+`ana.perez@correo.com` / `Demo1234` (ya verificado).

@@ -1,4 +1,4 @@
-﻿services:
+services:
   - type: web
     name: stellar-vault
     runtime: node
@@ -12,4 +12,10 @@
       - key: BREVO_API_KEY
         sync: false
       - key: MAIL_FROM
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
         sync: false
