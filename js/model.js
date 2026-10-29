@@ -5,7 +5,7 @@ const LOGO="data:image/webp;base64,UklGRmJbAABXRUJQVlA4WAoAAAAQAAAA/wAA/wAAQUxQS
 const MEM={};
 const LS={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));if(v!=null)return v}catch(e){}return MEM[k]!=null?JSON.parse(MEM[k]):d},set(k,v){MEM[k]=JSON.stringify(v);try{localStorage.setItem(k,MEM[k])}catch(e){}}};
 let TOKEN=LS.get("sv_token",null); // solo la sesión se recuerda en el navegador
-let P=[],CAT={},CATP={},D=[],CITY={},PROV=[],RULES=[],CONFIG={envio_costo:0,envio_gratis_desde:0,max_cantidad_stock:10,max_cantidad_preventa:5},CM={};
+let GOOGLE_ID=null,P=[],CAT={},CATP={},D=[],CITY={},PROV=[],RULES=[],CONFIG={envio_costo:0,envio_gratis_desde:0,max_cantidad_stock:10,max_cantidad_preventa:5},CM={};
 const CATS=()=>Object.entries(CATP);
 const FREE=()=>"$"+CONFIG.envio_gratis_desde,SHIPC=()=>"$"+Number(CONFIG.envio_costo).toFixed(2);
 const msgFor=(ambito,campo)=>(RULES.find(r=>r.ambito===ambito&&r.campo===campo)||{}).mensaje||"";
@@ -19,7 +19,7 @@ async function api(method,url,body){
 
 function applyComments(list){const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));CM={};list.forEach(c=>(CM[idx[c.pid]]=CM[idx[c.pid]]||[]).push({id:c.id,uid:c.uid,n:c.n,t:c.t,r:c.r,d:c.d}))}
 function applyData(d){
- CONFIG=d.config;RULES=d.reglas;CITY=d.provincias;PROV=Object.keys(CITY);
+ GOOGLE_ID=d.google||null;CONFIG=d.config;RULES=d.reglas;CITY=d.provincias;PROV=Object.keys(CITY);
  CAT={};CATP={};d.categorias.forEach(c=>{CAT[c.codigo]=c.nombre;CATP[c.codigo]=c.plural});
  P=d.productos.map((p,i)=>({id:i,dbId:p.id,name:p.name,by:p.by,pub:p.pub,cat:p.cat,price:p.price,stock:p.stock,c:p.c,tint:p.tint,tc:p.tc,pre:p.pre||undefined,dest:!!p.dest,imgs:p.imgs}));
  D=d.productos.map(p=>p.desc);
@@ -76,6 +76,7 @@ async function resendVerification(em){return api("POST","/api/reenviar",{email:e
 async function registerUser(nm,em,pw){
  const e=checkRules("registro",{nombre:nm,email:em,password:pw});if(Object.keys(e).length)return{error:Object.values(e)[0]};
  try{const d=await api("POST","/api/registro",{nombre:nm,email:em,password:pw});return{pendiente:true,email:d.email,simulado:d.simulado,seguimiento:d.seguimiento}}catch(x){return{error:x.message,pendiente:x.pendiente,email:x.email}}}
+async function googleLogin(credential){try{const d=await api("POST","/api/google",{credential});setUser(d.usuario,d.token);return{user:{name:d.usuario.nombre}}}catch(x){return{error:x.message}}}
 async function loginUser(em,pw){
  const e=checkRules("login",{email:em});if(Object.keys(e).length)return{error:Object.values(e)[0]};
  try{const d=await api("POST","/api/login",{email:em,password:pw});setUser(d.usuario,d.token);return{user:{name:d.usuario.nombre}}}catch(x){return{error:x.message,noVerificado:x.noVerificado,email:x.email,seguimiento:x.seguimiento}}}

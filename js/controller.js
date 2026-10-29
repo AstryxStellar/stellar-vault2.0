@@ -16,6 +16,7 @@ function render(){
  if(view==="co")prefillCheckout();
  if(view==="acct"&&!ORD.fresh){ORD.fresh=true;loadOrders().then(()=>{if(view==="acct")render()})}
  header();view==="home"?home():view==="cat"?catalog():view==="help"?help():view==="prod"?detail():view==="ok"?done():view==="login"?login():view==="acct"?acct():view==="fav"?favs():checkout();
+ if(view==="login"&&!PENDING)setTimeout(initGoogle,0);
  document.title=(view==="prod"?P[cur].name:{home:"Inicio",cat:"Catálogo",help:"Ayuda",login:AM==="up"?"Crear cuenta":"Iniciar sesión",acct:"Mis pedidos",fav:"Favoritos",co:"Finalizar pedido",ok:"Pedido confirmado"}[view])+" – STELLAR VAULT"}
 function togCat(k){F.cats.has(k)?F.cats.delete(k):F.cats.add(k);render()}
 $("#q").oninput=e=>{F.q=e.target.value;if(view!=="cat"){view="cat";setHash("#/catalogo")}render()};
@@ -80,6 +81,16 @@ async function authSubmit(e){
  await loadFavs();
  const first=r.user.name.split(" ")[0];
  go("home");toast(up?`Cuenta creada. ¡Bienvenido, ${first}!`:`Sesión iniciada. ¡Hola, ${first}!`,null)}
+function googleNoConfig(){toast("El inicio con Google aún no está configurado en el servidor.",null,null,"warn")}
+function initGoogle(tries=0){
+ const box=$("#gbtn");if(!box||!GOOGLE_ID)return;
+ if(!window.google||!google.accounts){if(tries<20)setTimeout(()=>initGoogle(tries+1),300);return}
+ google.accounts.id.initialize({client_id:GOOGLE_ID,callback:onGoogle,ux_mode:"popup"});
+ google.accounts.id.renderButton(box,{theme:"outline",size:"large",shape:"pill",width:Math.min(380,box.offsetWidth||380),locale:"es",text:AM==="up"?"signup_with":"signin_with"})}
+async function onGoogle(resp){
+ const r=await googleLogin(resp.credential);
+ if(r.error){toast(r.error,null,null,"warn");return}
+ await loadFavs();PENDING=null;stopPoll();go("home");toast("Sesión iniciada con Google. ¡Hola, "+r.user.name.split(" ")[0]+"!",null)}
 let pollT=null;
 function stopPoll(){clearInterval(pollT);pollT=null}
 function startPoll(){stopPoll();if(!PENDING||!PENDING.seg)return;pollT=setInterval(async()=>{if(!PENDING||PENDING.verified||view!=="login"){stopPoll();return}try{const d=await api("GET","/api/verificacion-estado?s="+PENDING.seg);if(d.verificado){PENDING.verified=true;PENDING.error=null;stopPoll();render();toast("¡Correo verificado! Ya puedes iniciar sesión.",null)}}catch(e){}},3000)}
