@@ -109,11 +109,19 @@ const perfilDe = id => {
 };
 const publico = u => perfilDe(u.id);
 
+// 0991234567 -> +593 99 123 4567 (los fijos quedan como +593 2 123 4567)
+function formatTel(d) {
+  const n = String(d || '').replace(/\D/g, '').replace(/^0/, '');
+  if (!n) return '';
+  return '+593 ' + (n.length === 9 ? n.replace(/^(\d{2})(\d{3})(\d{4})$/, '$1 $2 $3') : n.replace(/^(\d)(\d{3})(\d{4})$/, '$1 $2 $3'));
+}
+
 function pedidosDe(where, ...args) {
   return q(`SELECT * FROM pedidos WHERE ${where} ORDER BY id`, ...args).map(p => {
     const items = q(`SELECT i.producto_id id,pr.nombre n,i.cantidad q,i.precio_unitario pr FROM pedido_items i JOIN productos pr ON pr.id=i.producto_id WHERE i.pedido_id=?`, p.id);
     return {
       id: p.id, no: p.numero, date: p.fecha, paid: !!p.pagado, estado: p.estado, email: p.email, total: p.total, items,
+      name: p.nombre, tel: formatTel(p.telefono),
       dm: p.entrega === 'retiro' ? 'Retiro en tienda' : 'Envío por Servientrega',
       method: p.metodo_pago === 'deuna' ? 'DeUna' : 'Pago en físico (efectivo)',
       units: items.reduce((a, i) => a + i.q, 0),
@@ -146,17 +154,31 @@ function expirarPendientes() {
 setInterval(() => { try { expirarPendientes(); } catch (e) { console.error(e); } }, 60000).unref();
 
 async function enviarComprobante(pedidoId) {
-  const p = one('SELECT * FROM pedidos WHERE id=?', pedidoId);
+  const p = one(`SELECT pe.*,pr.nombre AS prov,ci.nombre AS city FROM pedidos pe LEFT JOIN provincias pr ON pr.id=pe.provincia_id LEFT JOIN ciudades ci ON ci.id=pe.ciudad_id WHERE pe.id=?`, pedidoId);
   const items = q('SELECT pr.nombre n,i.cantidad q,i.precio_unitario pu FROM pedido_items i JOIN productos pr ON pr.id=i.producto_id WHERE i.pedido_id=?', pedidoId);
-  const filas = items.map(i => `<tr><td style="padding:6px 0">${escHtml(i.n)}</td><td style="text-align:center">${i.q}</td><td style="text-align:right">${dinero(i.pu * i.q)}</td></tr>`).join('');
-  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;border:1px solid #f3d9e1;border-radius:12px;padding:24px">
-    <h2 style="color:#d6204f;margin:0 0 4px">STELLAR VAULT</h2><p style="margin:0 0 16px;color:#6b5a6e">Comprobante de pago</p>
-    <p>Hola <b>${escHtml(p.nombre)}</b>, recibimos tu pago con DeUna. ¡Gracias por tu compra!</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px"><tr style="border-bottom:1px solid #eee;text-align:left"><th>Artículo</th><th>Cant.</th><th style="text-align:right">Total</th></tr>${filas}</table>
-    <p style="text-align:right;margin:12px 0 0;line-height:1.7">Subtotal: ${dinero(p.subtotal)}<br>${p.entrega === 'retiro' ? 'Retiro en tienda' : 'Envío'}: ${dinero(p.envio)}<br><b style="font-size:18px">Total pagado: ${dinero(p.total)} USD</b></p>
-    <p style="font-size:13px;color:#6b5a6e;margin-top:16px">N.º de pedido: <b>${escHtml(p.numero)}</b><br>Entrega: ${p.entrega === 'retiro' ? 'Retiro en tienda (Quito)' : 'Envío por Servientrega'}<br>Método de pago: DeUna · Estado: <b style="color:#15803d">PAGADO</b></p>
-    <p style="font-size:11px;color:#9a8a9d">Este documento es un comprobante de compra de demostración y no reemplaza una factura electrónica autorizada por el SRI.</p></div>`;
-  await enviarCorreo({ to: p.email, subject: `Comprobante de pago ${p.numero} · STELLAR VAULT`, html, enlace: '(comprobante de pago)' });
+  const pagado = !!p.pagado, unidades = items.reduce((a, i) => a + i.q, 0);
+  const fila = (k, v) => `<tr><td style="padding:9px 0;color:#6b5a6e;border-bottom:1px solid #f3e7ec">${k}</td><td style="padding:9px 0;text-align:right;font-weight:700;border-bottom:1px solid #f3e7ec">${v}</td></tr>`;
+  const detalle = items.map(i => `${escHtml(i.n)} × ${i.q} · ${dinero(i.pu * i.q)}`).join('<br>');
+  const entrega = p.entrega === 'retiro' ? 'Retiro en tienda (Quito)' : 'Envío por Servientrega<br><span style="font-weight:400;color:#6b5a6e">' + escHtml([p.direccion, p.city, p.prov].filter(Boolean).join(', ')) + '</span>';
+  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;border:1px solid #f3d9e1;border-radius:14px;padding:24px;color:#2a1a2e">
+    <h2 style="color:#d6204f;margin:0 0 2px">STELLAR VAULT</h2>
+    <p style="margin:0 0 16px;color:#6b5a6e">Hola <b>${escHtml(p.nombre)}</b>, ${pagado ? 'recibimos tu pago. ¡Gracias por tu compra!' : 'registramos tu pedido. ¡Gracias por tu compra!'} Guarda este correo como constancia.</p>
+    <div style="border:1px solid #f3d9e1;border-radius:12px;padding:6px 18px 14px">
+      <table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td style="padding:12px 0;font-size:17px;font-weight:700">Comprobante</td><td style="text-align:right;font-weight:700;font-size:12px;color:${pagado ? '#15803d' : '#b45309'}">${pagado ? 'PAGADO' : 'PAGO PENDIENTE'}</td></tr>
+      ${fila('N.º de pedido', escHtml(p.numero))}
+      ${fila('Fecha', new Date(p.fecha).toLocaleString('es-EC', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Guayaquil' }))}
+      ${fila('Cliente', escHtml(p.nombre))}
+      ${fila('Teléfono', escHtml(formatTel(p.telefono)))}
+      ${fila('Correo', escHtml(p.email))}
+      ${fila('Método de pago', p.metodo_pago === 'deuna' ? 'DeUna' : 'Pago en físico (efectivo)')}
+      ${fila('Entrega', entrega)}
+      ${fila('Artículos (' + unidades + ' unidad' + (unidades > 1 ? 'es' : '') + ')', detalle)}
+      ${fila('Subtotal', dinero(p.subtotal))}
+      ${fila(p.entrega === 'retiro' ? 'Retiro en tienda' : 'Envío', dinero(p.envio))}
+      <tr><td style="padding:12px 0 0;color:#6b5a6e">${pagado ? 'Total pagado' : 'Total a pagar'}</td><td style="padding:12px 0 0;text-align:right;font-weight:800;font-size:18px">${dinero(p.total)} USD</td></tr></table></div>
+    <p style="font-size:13px;color:#6b5a6e;margin:16px 0 0">¿Dudas con tu pedido? Escríbenos a <b>santiagoquiguango@hotmail.com</b> o llama al <b>096368732</b>.</p>
+    <p style="font-size:11px;color:#9a8a9d;margin:14px 0 0">Este documento es un comprobante de compra de demostración y no reemplaza una factura electrónica autorizada por el SRI.</p></div>`;
+  await enviarCorreo({ to: p.email, subject: `${pagado ? 'Comprobante de pago' : 'Comprobante de pedido'} ${p.numero} · STELLAR VAULT`, html, enlace: '(comprobante)' });
 }
 
 async function aprobarPago(token) {
@@ -397,7 +419,7 @@ const rutas = {
     const subtotal = Math.round(items.reduce((a, i) => a + i.prod.precio * i.q, 0) * 100) / 100;
     const envio = dm === 'pick' || subtotal >= c.envio_gratis_desde ? 0 : c.envio_costo;
     try {
-      return tx(db, () => {
+      const out = tx(db, () => {
         let numero; do { numero = '#SV-2026-' + (1000 + crypto.randomInt(9000)); } while (one('SELECT 1 FROM pedidos WHERE numero=?', numero));
         const pr = dm === 'ship' ? one('SELECT id FROM provincias WHERE nombre=?', String(d.prov)) : null;
         const ci = pr ? one('SELECT id FROM ciudades WHERE provincia_id=? AND nombre=?', pr.id, String(d.city)) : null;
@@ -420,6 +442,8 @@ const rutas = {
         }
         return { pedido: pedidosDe('id=?', pid)[0], pago };
       });
+      if (!out.pago) enviarComprobante(out.pedido.id).catch(e => console.error('No se pudo enviar el comprobante:', e.message));
+      return out;
     } catch (e) { throw dbError(e); }
   },
 };
