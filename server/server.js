@@ -47,6 +47,26 @@ setInterval(() => { const n = Date.now(); for (const [k, h] of golpes) if (h.t <
 const LIMITES = { 'POST /api/login': [10, 60000], 'POST /api/registro': [5, 600000], 'POST /api/reenviar': [5, 600000], 'POST /api/pedidos': [20, 60000], 'POST /api/comentarios': [20, 60000], 'POST /api/favoritos': [60, 60000] };
 const exigirSesion = (user, msg = 'Inicia sesión para continuar.') => { if (!user) throw new HttpError(401, { error: msg, requiereLogin: true }); return user; };
 
+// El navegador que inició el registro recibe un código secreto para saber cuándo se verificó el correo.
+const seguimientos = new Map();
+function nuevoSeguimiento(uid) {
+  const s = crypto.randomBytes(16).toString('hex');
+  seguimientos.set(s, { uid, exp: Date.now() + 24 * 3600 * 1000 });
+  return s;
+}
+setInterval(() => { const n = Date.now(); for (const [k, v] of seguimientos) if (v.exp < n) seguimientos.delete(k); }, 600000).unref();
+
+const paginaVerificacion = (ok) => `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${ok ? 'Correo verificado' : 'Enlace no válido'} · STELLAR VAULT</title>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#fff5f8;font-family:Inter,Arial,sans-serif;color:#2a1a2e}
+.c{background:#fff;border:1px solid #f3d9e1;border-radius:16px;padding:36px 28px;max-width:420px;margin:16px;text-align:center;box-shadow:0 8px 30px rgba(214,32,79,.12)}
+.i{width:72px;height:72px;border-radius:50%;margin:0 auto 18px;display:grid;place-items:center;font-size:36px;color:#fff;background:${ok ? '#15803d' : '#b91c1c'}}
+h1{margin:0 0 10px;font-size:24px}p{margin:0 0 18px;line-height:1.5;color:#6b5a6e}b{color:#d6204f}
+a{display:inline-block;background:#d6204f;color:#fff;text-decoration:none;font-weight:700;padding:12px 22px;border-radius:8px}</style></head><body><div class="c">
+<div class="i">${ok ? '✓' : '!'}</div>
+<h1>${ok ? '¡Correo verificado!' : 'Enlace no válido'}</h1>
+<p>${ok ? 'Tu cuenta de <b>STELLAR VAULT</b> ya está activa. <b>Puedes cerrar esta ventana</b> y volver a la tienda para iniciar sesión.' : 'Este enlace de verificación no es válido o ya venció. Vuelve a la tienda y pide que te reenviemos uno nuevo.'}</p>
+<a href="/#/ingresar">Ir a la tienda</a></div></body></html>`;
+
 // Crea un enlace de verificación (válido 24 h) y lo envía al correo con el que se registró el usuario.
 async function enviarVerificacion(u) {
   const token = crypto.randomBytes(32).toString('hex');
@@ -59,7 +79,8 @@ async function enviarVerificacion(u) {
     <p>Para activar tu cuenta confirma que este correo es tuyo:</p>
     <p style="text-align:center;margin:24px 0"><a href="${enlace}" style="background:#d6204f;color:#fff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold">Verificar mi correo</a></p>
     <p style="font-size:12px;color:#6b5a6e">Si el botón no funciona, copia este enlace en tu navegador:<br>${enlace}<br>El enlace vence en 24 horas. Si no creaste esta cuenta, ignora este mensaje.</p></div>`;
-  return enviarCorreo({ to: u.email, subject: 'Verifica tu correo · STELLAR VAULT', html, enlace });
+  const m = await enviarCorreo({ to: u.email, subject: 'Verifica tu correo · STELLAR VAULT', html, enlace });
+  return { ...m, seguimiento: nuevoSeguimiento(u.id) };
 }
 
 const usuarioDe = req => {
@@ -126,7 +147,7 @@ const rutas = {
     if (u && u.verificado) throw new HttpError(409, { error: 'Ya existe una cuenta con ese correo. Inicia sesión.' });
     if (u) run('UPDATE usuarios SET nombre=?,password_hash=? WHERE id=?', nombre, hashPassword(String(body.password)), u.id); // registro sin verificar: se reintenta
     else { const r = run('INSERT INTO usuarios(nombre,email,password_hash) VALUES (?,?,?)', nombre, email, hashPassword(String(body.password))); u = { id: Number(r.lastInsertRowid), nombre, email }; }
-    try { const m = await enviarVerificacion({ ...u, nombre }); return { pendiente: true, email, simulado: m.simulado }; }
+    try { const m = await enviarVerificacion({ ...u, nombre }); return { pendiente: true, email, simulado: m.simulado, seguimiento: m.seguimiento }; }
     catch (e) { console.error('Error al enviar el correo:', e.message); throw new HttpError(502, { error: 'Tu cuenta se creó, pero no pudimos enviar el correo de verificación. Pide que lo reenviemos.', pendiente: true, email }); }
   },
   'POST /api/reenviar': async ({ body }) => {
@@ -139,10 +160,15 @@ const rutas = {
   },
   'GET /api/verificar': ({ query }) => {
     const v = one('SELECT usuario_id,expira FROM verificaciones WHERE token=?', String(query.get('token') || ''));
-    if (!v || v.expira < new Date().toISOString()) return { __redirect: '/?verificacion=invalida#/ingresar' };
+    if (!v || v.expira < new Date().toISOString()) return { __html: paginaVerificacion(false) };
     run('UPDATE usuarios SET verificado=1 WHERE id=?', v.usuario_id);
     run('DELETE FROM verificaciones WHERE usuario_id=?', v.usuario_id);
-    return { __redirect: '/?verificacion=ok#/ingresar' };
+    return { __html: paginaVerificacion(true) };
+  },
+  'GET /api/verificacion-estado': ({ query }) => {
+    const s = seguimientos.get(String(query.get('s') || ''));
+    const u = s && one('SELECT verificado FROM usuarios WHERE id=?', s.uid);
+    return { verificado: !!(u && u.verificado) };
   },
   'POST /api/login': ({ body }) => {
     if (String(body.password || '').length > 128) throw new HttpError(401, { error: 'Correo o contraseña incorrectos.' });
@@ -150,7 +176,7 @@ const rutas = {
     if (Object.keys(err).length) throw new HttpError(422, { error: Object.values(err)[0] });
     const u = one('SELECT id,nombre,email,password_hash,verificado FROM usuarios WHERE email=?', String(body.email).trim());
     if (!u || !checkPassword(String(body.password || ''), u.password_hash)) throw new HttpError(401, { error: 'Correo o contraseña incorrectos.' });
-    if (!u.verificado) throw new HttpError(403, { error: 'Aún no verificas tu correo. Revisa tu bandeja de entrada o pide que te reenviemos el enlace.', noVerificado: true, email: u.email });
+    if (!u.verificado) throw new HttpError(403, { error: 'Aún no verificas tu correo. Revisa tu bandeja de entrada o pide que te reenviemos el enlace.', noVerificado: true, email: u.email, seguimiento: nuevoSeguimiento(u.id) });
     return { token: sesion(u.id), usuario: publico(u) };
   },
   'POST /api/logout': ({ req }) => { run('DELETE FROM sesiones WHERE token=?', (req.headers.authorization || '').replace(/^Bearer /, '')); return { ok: true }; },
@@ -239,6 +265,7 @@ http.createServer(async (req, res) => {
       if (LIMITES[claveRuta]) limitar(req, claveRuta, ...LIMITES[claveRuta]);
       const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await leerCuerpo(req);
       const r = await handler({ req, body, params, query: url.searchParams, user: usuarioDe(req) });
+      if (r && r.__html) return enviar(res, 200, r.__html, 'text/html; charset=utf-8');
       if (r && r.__redirect) { res.writeHead(302, { Location: r.__redirect }); return res.end(); }
       return enviar(res, 200, r);
     }
