@@ -75,11 +75,16 @@ function setAM(m){AM=m;render();const h=$("#app h1");h&&h.focus()}
 async function authSubmit(e){
  e.preventDefault();const up=AM==="up",em=$("#a_e").value.trim().toLowerCase(),pw=$("#a_p").value,nm=up?$("#a_n").value.trim():"";
  const r=up?await registerUser(nm,em,pw):await loginUser(em,pw);
- if(r.pendiente||r.noVerificado){PENDING={email:r.email||em,simulado:r.simulado,error:r.error};render();const h=$("#app h1");h&&h.focus();return}
+ if(r.pendiente||r.noVerificado){PENDING={email:r.email||em,simulado:r.simulado,error:r.error,seg:r.seguimiento};render();startPoll();const h=$("#app h1");h&&h.focus();return}
  if(r.error){const b=$("#aerr");b.textContent="⚠ "+r.error;b.hidden=false;b.focus();return}
  await loadFavs();
  const first=r.user.name.split(" ")[0];
  go("home");toast(up?`Cuenta creada. ¡Bienvenido, ${first}!`:`Sesión iniciada. ¡Hola, ${first}!`,null)}
+let pollT=null;
+function stopPoll(){clearInterval(pollT);pollT=null}
+function startPoll(){stopPoll();if(!PENDING||!PENDING.seg)return;pollT=setInterval(async()=>{if(!PENDING||PENDING.verified||view!=="login"){stopPoll();return}try{const d=await api("GET","/api/verificacion-estado?s="+PENDING.seg);if(d.verificado){PENDING.verified=true;PENDING.error=null;stopPoll();render();toast("¡Correo verificado! Ya puedes iniciar sesión.",null)}}catch(e){}},3000)}
+function goLoginVerified(){const em=PENDING&&PENDING.email;PENDING=null;AM="in";stopPoll();render();const e=$("#a_e");if(em&&e)e.value=em;const p=$("#a_p");p&&p.focus()}
+async function resendFromLogin(){const em=(($("#a_e")||{}).value||"").trim().toLowerCase(),e=checkRules("login",{email:em});if(Object.keys(e).length){const b=$("#aerr");b.textContent="⚠ Escribe tu correo arriba para reenviarte el enlace.";b.hidden=false;b.focus();return}PENDING={email:em};await resendMail()}
 async function resendMail(){if(!PENDING)return;try{const d=await resendVerification(PENDING.email);PENDING.error=null;PENDING.simulado=d.simulado;render();toast("Reenviamos el correo a "+PENDING.email,null)}catch(e){PENDING.error=e.message;render()}}
 async function toggleFavUI(i){if(!USER){needLogin("Inicia sesión para guardar favoritos.");return}const on=await toggleFav(i);render();toast(on?P[i].name+" añadido a favoritos":P[i].name+" quitado de favoritos",null);const b=document.querySelector('[data-fav="'+i+'"]');b&&b.focus()}
 function logout(){endSession();go("home");toast("Cerraste sesión",null)}

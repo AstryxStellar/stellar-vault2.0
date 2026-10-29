@@ -75,7 +75,7 @@ async function toggleFav(i){const on=!FAV.has(i);try{const idx=Object.fromEntrie
 async function resendVerification(em){return api("POST","/api/reenviar",{email:em})}
 async function registerUser(nm,em,pw){
  const e=checkRules("registro",{nombre:nm,email:em,password:pw});if(Object.keys(e).length)return{error:Object.values(e)[0]};
- try{const d=await api("POST","/api/registro",{nombre:nm,email:em,password:pw});return{pendiente:true,email:d.email,simulado:d.simulado}}catch(x){return{error:x.message,pendiente:x.pendiente,email:x.email}}}
+ try{const d=await api("POST","/api/registro",{nombre:nm,email:em,password:pw});return{pendiente:true,email:d.email,simulado:d.simulado,seguimiento:d.seguimiento}}catch(x){return{error:x.message,pendiente:x.pendiente,email:x.email}}}
 async function loginUser(em,pw){
  const e=checkRules("login",{email:em});if(Object.keys(e).length)return{error:Object.values(e)[0]};
- try{const d=await api("POST","/api/login",{email:em,password:pw});setUser(d.usuario,d.token);return{user:{name:d.usuario.nombre}}}catch(x){return{error:x.message,noVerificado:x.noVerificado,email:x.email}}}
+ try{const d=await api("POST","/api/login",{email:em,password:pw});setUser(d.usuario,d.token);return{user:{name:d.usuario.nombre}}}catch(x){return{error:x.message,noVerificado:x.noVerificado,email:x.email,seguimiento:x.seguimiento}}}
