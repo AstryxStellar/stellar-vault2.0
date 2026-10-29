@@ -97,83 +97,88 @@ const COMENTARIOS = [
   [8, 'Ana', 5, 'Impresión perfecta y llegó antes de lo esperado.'],
 ];
 
-function seed(db, hashPassword) {
-  const ins = (sql, ...a) => db.prepare(sql).run(...a);
-  db.exec('BEGIN');
-  try {
-    // Configuración
-    for (const [k, v, d] of [
-      ['envio_costo', 3.5, 'Costo de envío por Servientrega (USD)'],
-      ['envio_gratis_desde', 60, 'Compra mínima para envío gratis (USD)'],
-      ['max_cantidad_stock', 10, 'Máximo de unidades por compra en productos en stock'],
-      ['max_cantidad_preventa', 5, 'Máximo de unidades por compra en preventas'],
-    ]) ins('INSERT INTO configuracion(clave,valor,detalle) VALUES (?,?,?)', k, v, d);
+const slug = n => n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, '.');
 
-    // Categorías
-    [['m', 'Manga', 'Mangas'], ['n', 'Novela ligera', 'Novelas ligeras'], ['f', 'Figura', 'Figuras coleccionables']]
-      .forEach(([c, n, p], i) => ins('INSERT INTO categorias(codigo,nombre,plural,orden) VALUES (?,?,?,?)', c, n, p, i + 1));
-    const catId = Object.fromEntries(db.prepare('SELECT codigo,id FROM categorias').all().map(r => [r.codigo, r.id]));
+// Arma todas las sentencias con ids explícitos y las ejecuta en UN solo lote atómico (sirve igual en Turso o en un archivo local).
+async function seed(db, hashPassword) {
+  const S = [];
+  const ins = (sql, ...a) => S.push({ sql, args: a.map(x => (x === undefined ? null : x)) });
 
-    // Provincias y ciudades
-    for (const [prov, ciudades] of Object.entries(base.CITY)) {
-      const pid = Number(ins('INSERT INTO provincias(nombre) VALUES (?)', prov).lastInsertRowid);
-      ciudades.forEach(c => ins('INSERT INTO ciudades(provincia_id,nombre) VALUES (?,?)', pid, c));
-    }
+  // Configuración
+  for (const [k, v, d] of [
+    ['envio_costo', 3.5, 'Costo de envío por Servientrega (USD)'],
+    ['envio_gratis_desde', 60, 'Compra mínima para envío gratis (USD)'],
+    ['max_cantidad_stock', 10, 'Máximo de unidades por compra en productos en stock'],
+    ['max_cantidad_preventa', 5, 'Máximo de unidades por compra en preventas'],
+  ]) ins('INSERT INTO configuracion(clave,valor,detalle) VALUES (?,?,?)', k, v, d);
 
-    // Productos: los 26 originales + nuevos hasta completar 15 por categoría
-    const addProd = (nombre, autor, ed, cat, precio, stock, c, t, tc, pre, desc) =>
-      Number(ins(`INSERT INTO productos(categoria_id,nombre,autor,editorial,precio,stock,color,tinte,tinte_texto,preventa,destacado,descripcion)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, catId[cat], nombre, autor, ed, precio, stock, c, t, tc, pre, DESTACADOS.has(nombre) ? 1 : 0, desc).lastInsertRowid);
-    base.P.forEach((p, i) => {
-      const id = addProd(p.name, p.by, p.pub, p.cat, p.price, p.stock, p.c, p.tint, p.tc, p.pre || null, base.D[i]);
-      if (base.IMG[i]) ins('INSERT INTO imagenes_producto(producto_id,url,orden) VALUES (?,?,1)', id, base.IMG[i]);
-    });
-    [...NUEVOS, ...EXTRA].forEach(n => addProd(...n));
+  // Categorías
+  const catId = { m: 1, n: 2, f: 3 };
+  [['m', 'Manga', 'Mangas'], ['n', 'Novela ligera', 'Novelas ligeras'], ['f', 'Figura', 'Figuras coleccionables']]
+    .forEach(([c, n, p], i) => ins('INSERT INTO categorias(id,codigo,nombre,plural,orden) VALUES (?,?,?,?,?)', i + 1, c, n, p, i + 1));
 
-    // Usuarios (contraseña de prueba: Demo1234)
-    const pass = hashPassword('Demo1234');
-    USUARIOS.forEach((n, i) => ins('INSERT INTO usuarios(nombre,email,password_hash,verificado) VALUES (?,?,?,1)',
-      n, n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, '.') + '@correo.com', pass));
+  // Provincias y ciudades
+  let provId = 0;
+  for (const [prov, ciudades] of Object.entries(base.CITY)) {
+    provId++;
+    ins('INSERT INTO provincias(id,nombre) VALUES (?,?)', provId, prov);
+    ciudades.forEach(c => ins('INSERT INTO ciudades(provincia_id,nombre) VALUES (?,?)', provId, c));
+  }
 
-    // Reglas de validación
-    REGLAS.forEach(r => ins('INSERT INTO reglas_validacion(ambito,campo,tipo,valor,condicion,mensaje) VALUES (?,?,?,?,?,?)', ...r));
+  // Productos: los 26 originales + nuevos hasta completar 15 en stock y 15 en preventa por categoría
+  const PRODS = []; let prodId = 0;
+  const addProd = (nombre, autor, ed, cat, precio, stock, c, t, tc, pre, desc) => {
+    const id = ++prodId;
+    PRODS.push({ id, precio, stock, pre });
+    ins(`INSERT INTO productos(id,categoria_id,nombre,autor,editorial,precio,stock,color,tinte,tinte_texto,preventa,destacado,descripcion)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, catId[cat], nombre, autor, ed, precio, stock, c, t, tc, pre, DESTACADOS.has(nombre) ? 1 : 0, desc);
+    return id;
+  };
+  base.P.forEach((p, i) => {
+    const id = addProd(p.name, p.by, p.pub, p.cat, p.price, p.stock, p.c, p.tint, p.tc, p.pre || null, base.D[i]);
+    if (base.IMG[i]) ins('INSERT INTO imagenes_producto(producto_id,url,orden) VALUES (?,?,1)', id, base.IMG[i]);
+  });
+  [...NUEVOS, ...EXTRA].forEach(n => addProd(...n));
 
-    // Pedidos de ejemplo (se descuenta stock con los triggers)
-    const stockProds = db.prepare('SELECT id,precio FROM productos WHERE preventa IS NULL AND stock >= 8 ORDER BY id').all();
-    const lugares = [['Pichincha', 'Quito'], ['Guayas', 'Guayaquil'], ['Azuay', 'Cuenca']];
-    const envioCosto = 3.5, gratis = 60;
-    for (let i = 0; i < 15; i++) {
-      const items = [0, 1, 2].slice(0, 1 + (i % 3)).map(k => ({ ...stockProds[(i * 3 + k) % stockProds.length], q: 1 + ((i + k) % 2) }));
-      const subtotal = Math.round(items.reduce((a, it) => a + it.precio * it.q, 0) * 100) / 100;
-      const retiro = i % 3 === 0, deuna = i % 2 === 0;
-      const envio = retiro ? 0 : subtotal >= gratis ? 0 : envioCosto;
-      const [prov, ciudad] = lugares[i % 3];
-      const pid = retiro ? null : db.prepare('SELECT id FROM provincias WHERE nombre=?').get(prov).id;
-      const cid = retiro ? null : db.prepare('SELECT c.id FROM ciudades c WHERE c.provincia_id=? AND c.nombre=?').get(pid, ciudad).id;
-      const depto = i % 4 === 1 && !retiro;
-      const ped = Number(ins(`INSERT INTO pedidos(numero,usuario_id,nombre,telefono,email,entrega,metodo_pago,provincia_id,ciudad_id,direccion,tipo_vivienda,piso,unidad,subtotal,envio,total,pagado,fecha)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        '#SV-2026-' + (1001 + i * 37), i + 1, USUARIOS[i], '09' + String(80000000 + i * 1234567).slice(0, 8),
-        USUARIOS[i].normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, '.') + '@correo.com',
-        retiro ? 'retiro' : 'envio', deuna ? 'deuna' : 'fisico', pid, cid, retiro ? null : `Av. Principal N${10 + i}-${20 + i} y Calle ${i + 1}`,
-        depto ? 'Departamento' : 'Casa', depto ? '3' : null, depto ? '3B' : null,
-        subtotal, envio, Math.round((subtotal + envio) * 100) / 100, deuna ? 1 : 0,
-        new Date(Date.UTC(2026, 8, 1 + i * 2, 15, 30)).toISOString()).lastInsertRowid);
-      items.forEach(it => ins('INSERT INTO pedido_items(pedido_id,producto_id,cantidad,precio_unitario) VALUES (?,?,?,?)', ped, it.id, it.q, it.precio));
-      const fechaP = new Date(Date.UTC(2026, 8, 1 + i * 2, 15, 30)).toISOString();
-      ins('INSERT INTO pagos(pedido_id,token,metodo,monto,estado,creado,expira,resuelto) VALUES (?,?,?,?,?,?,?,?)', ped, require('crypto').randomBytes(24).toString('hex'),
-        deuna ? (i % 4 === 0 ? 'deuna_qr' : 'deuna_boton') : 'fisico', Math.round((subtotal + envio) * 100) / 100, deuna ? 'aprobado' : 'pendiente', fechaP, fechaP, deuna ? fechaP : null);
-    }
+  // Usuarios (contraseña de prueba: Demo1234)
+  const pass = hashPassword('Demo1234');
+  USUARIOS.forEach((n, i) => ins('INSERT INTO usuarios(id,nombre,email,password_hash,verificado) VALUES (?,?,?,?,1)', i + 1, n, slug(n) + '@correo.com', pass));
 
-    // Comentarios
-    COMENTARIOS.forEach(([pid, , r, t], i) => ins('INSERT INTO comentarios(producto_id,usuario_id,autor,calificacion,texto,fecha) VALUES (?,?,?,?,?,?)',
-      pid, i + 1, USUARIOS[i], r, t, new Date(Date.UTC(2026, 8, 5 + i, 12, 0)).toISOString()));
+  // Reglas de validación
+  REGLAS.forEach(r => ins('INSERT INTO reglas_validacion(ambito,campo,tipo,valor,condicion,mensaje) VALUES (?,?,?,?,?,?)', ...r));
 
-    // Favoritos de ejemplo (usuario, producto)
-    for (let i = 0; i < 15; i++) ins('INSERT INTO favoritos(usuario_id,producto_id) VALUES (?,?)', i + 1, 1 + ((i * 7) % 90));
+  // Pedidos de ejemplo (el stock se descuenta con los triggers)
+  const stockProds = PRODS.filter(p => !p.pre && p.stock >= 8);
+  const lugares = [['Pichincha', 'Quito'], ['Guayas', 'Guayaquil'], ['Azuay', 'Cuenca']];
+  const envioCosto = 3.5, gratis = 60;
+  for (let i = 0; i < 15; i++) {
+    const items = [0, 1, 2].slice(0, 1 + (i % 3)).map(k => ({ ...stockProds[(i * 3 + k) % stockProds.length], q: 1 + ((i + k) % 2) }));
+    const subtotal = Math.round(items.reduce((a, it) => a + it.precio * it.q, 0) * 100) / 100;
+    const retiro = i % 3 === 0, deuna = i % 2 === 0;
+    const envio = retiro ? 0 : subtotal >= gratis ? 0 : envioCosto;
+    const [prov, ciudad] = lugares[i % 3];
+    const depto = i % 4 === 1 && !retiro;
+    const fecha = new Date(Date.UTC(2026, 8, 1 + i * 2, 15, 30)).toISOString();
+    const total = Math.round((subtotal + envio) * 100) / 100, ped = i + 1;
+    ins(`INSERT INTO pedidos(id,numero,usuario_id,nombre,telefono,email,entrega,metodo_pago,provincia_id,ciudad_id,direccion,tipo_vivienda,piso,unidad,subtotal,envio,total,pagado,fecha)
+         VALUES (?,?,?,?,?,?,?,?,(SELECT id FROM provincias WHERE nombre=?),(SELECT c.id FROM ciudades c JOIN provincias p ON p.id=c.provincia_id WHERE p.nombre=? AND c.nombre=?),?,?,?,?,?,?,?,?,?)`,
+      ped, '#SV-2026-' + (1001 + i * 37), i + 1, USUARIOS[i], '09' + String(80000000 + i * 1234567).slice(0, 8), slug(USUARIOS[i]) + '@correo.com',
+      retiro ? 'retiro' : 'envio', deuna ? 'deuna' : 'fisico', retiro ? null : prov, retiro ? null : prov, retiro ? null : ciudad,
+      retiro ? null : `Av. Principal N${10 + i}-${20 + i} y Calle ${i + 1}`, depto ? 'Departamento' : 'Casa', depto ? '3' : null, depto ? '3B' : null,
+      subtotal, envio, total, deuna ? 1 : 0, fecha);
+    items.forEach(it => ins('INSERT INTO pedido_items(pedido_id,producto_id,cantidad,precio_unitario) VALUES (?,?,?,?)', ped, it.id, it.q, it.precio));
+    ins('INSERT INTO pagos(pedido_id,token,metodo,monto,estado,creado,expira,resuelto) VALUES (?,?,?,?,?,?,?,?)', ped, require('crypto').randomBytes(24).toString('hex'),
+      deuna ? (i % 4 === 0 ? 'deuna_qr' : 'deuna_boton') : 'fisico', total, deuna ? 'aprobado' : 'pendiente', fecha, fecha, deuna ? fecha : null);
+  }
 
-    db.exec('COMMIT');
-  } catch (e) { db.exec('ROLLBACK'); throw e; }
+  // Comentarios
+  COMENTARIOS.forEach(([pid, , r, t], i) => ins('INSERT INTO comentarios(producto_id,usuario_id,autor,calificacion,texto,fecha) VALUES (?,?,?,?,?,?)',
+    pid, i + 1, USUARIOS[i], r, t, new Date(Date.UTC(2026, 8, 5 + i, 12, 0)).toISOString()));
+
+  // Favoritos de ejemplo (usuario, producto)
+  for (let i = 0; i < 15; i++) ins('INSERT INTO favoritos(usuario_id,producto_id) VALUES (?,?)', i + 1, 1 + ((i * 7) % 90));
+
+  await db.batch(S, 'write');
 }
 
 module.exports = { seed };
