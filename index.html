@@ -3,6 +3,7 @@
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>STELLAR VAULT</title>
+<script>try{var t=localStorage.getItem("sv_tema");if(!t&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
@@ -158,6 +159,29 @@ footer{border-top:3px solid var(--acc);background:var(--card);padding:36px 64px 
 .prod{position:relative}.fav{position:absolute;top:10px;right:10px;z-index:2;width:38px;height:38px;border-radius:50%;border:1px solid var(--bd);background:var(--card);color:var(--acc);font-size:20px;line-height:1;display:grid;place-items:center;padding:0;box-shadow:0 2px 8px rgba(42,26,46,.15)}.fav:hover,.fav.on{background:var(--acc);color:#fff;border-color:var(--acc)}.toast.warn{border-left-color:#f59e0b}
 .or{display:flex;align-items:center;gap:12px;margin:18px 0 12px;color:var(--mute);font-size:13px}.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
 .gwrap{display:flex;justify-content:center;min-height:44px}.gfake{width:100%;height:44px;border:1px solid var(--bd);border-radius:22px;background:#fff;display:flex;align-items:center;justify-content:center;gap:10px;font-weight:600;color:#3c4043}.gfake:hover{background:#f8f9fa}
+.tbtn{width:44px;height:44px;border-radius:50%;border:2px solid var(--line);background:var(--card);font-size:18px;line-height:1;padding:0;flex:none}.tbtn:hover{border-color:var(--acc)}
+.ubtn{display:inline-flex;align-items:center;gap:8px}
+.meth3{grid-template-columns:repeat(3,1fr)}@media(max-width:900px){.meth3{grid-template-columns:1fr}}
+.qrbox{display:flex;justify-content:center;margin:6px 0 4px}.qrbox svg{width:min(260px,70vw);height:auto;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px}
+.ord .st.cx{background:#fee2e2;color:#991b1b}[data-theme=dark] .ord .st.cx{background:#3d1a1a;color:#fca5a5}
+.av{border-radius:50%;object-fit:cover;background:var(--acc);color:#fff;display:inline-grid;place-items:center;font-weight:700;flex:none}
+.prof{display:flex;gap:20px;align-items:center;flex-wrap:wrap}.prof .av{border:3px solid var(--line)}
+.pager{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:24px 0 4px}.pg{min-width:42px;height:42px;padding:0 12px;border:1px solid var(--bd);background:var(--card);border-radius:8px;font-weight:700}.pg:hover:not(:disabled){border-color:var(--acc);color:var(--acc)}.pg.cur{background:var(--acc);color:#fff;border-color:var(--acc)}.pg:disabled{opacity:.45;cursor:not-allowed}.pgd{align-self:center;color:var(--mute)}.pginfo{text-align:center;color:var(--mute);font-size:13px;margin:0 0 20px}
+/* modo oscuro */
+:root[data-theme=dark]{color-scheme:dark;--bg:#15111b;--card:#1f1827;--ink:#f1e8f3;--mute:#b5a6ba;--line:#3b2f46;--bd:#8d7c95;--acc:#ec4472;--green:#4ade80;--red:#f87171;--soft:#251d2d}
+[data-theme=dark] .toast{background:#2d2438;border:1px solid var(--line)}
+[data-theme=dark] .info{background:#3a1f2c;color:#ffd0df}
+[data-theme=dark] .err{background:#3d1a1a;color:#ffd0d0}
+[data-theme=dark] .mt.on,[data-theme=dark] .undo{background:#33202b}
+[data-theme=dark] .trash:hover{background:#3d1a1a}
+[data-theme=dark] .hero{background:linear-gradient(120deg,#1f1827,#33202b)}
+[data-theme=dark] .f input:focus,[data-theme=dark] .f select:focus,[data-theme=dark] .f textarea:focus{box-shadow:0 0 0 3px rgba(236,68,114,.35)}
+[data-theme=dark] .btn:disabled{background:#4a3d52}
+[data-theme=dark] .btn.alt{background:#4a2a38;color:#ffd4c2}
+[data-theme=dark] .reset{border-color:var(--ink)}
+[data-theme=dark] .stock.w{color:#fbbf24}
+[data-theme=dark] .ord .st{background:#4a3a14;color:#fde68a}[data-theme=dark] .ord .st.pd2{background:#14391f;color:#86efac}
+[data-theme=dark] .f input:disabled{opacity:.7}
 .ubtn{height:44px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:22px;padding:0 18px;font-weight:700;white-space:nowrap;max-width:170px;overflow:hidden;text-overflow:ellipsis}.ubtn:hover{border-color:var(--acc);color:var(--acc)}
 @media(max-width:900px){.ubtn{order:2;margin-left:auto;height:40px;padding:0 12px;font-size:13px}.cartbtn{margin-left:0}}
 .ord{margin-bottom:16px}.ord .oh{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline;margin-bottom:8px}.ord .oh b{font-size:16px}.ord ul{margin:8px 0;padding-left:20px}.ord .st{font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;background:#fef3c7;color:#92400e}.ord .st.pd2{background:#dcfce7;color:#166534}
@@ -188,6 +212,7 @@ footer{border-top:3px solid var(--acc);background:var(--card);padding:36px 64px 
 <div class="ov" id="drawerOv" onclick="if(event.target===this)closeCart()"><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dT"></aside></div>
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script src="js/rules.js"></script>
 <script src="js/model.js"></script>
 <script src="js/view.js"></script>
