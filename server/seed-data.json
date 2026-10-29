@@ -1,0 +1,650 @@
+{
+ "P": [
+  {
+   "id": 0,
+   "name": "Mayonaka Heart Tune Vol. 1",
+   "by": "Masakuni Igarashi",
+   "pub": "Editorial Ivrea",
+   "cat": "m",
+   "price": 12.5,
+   "stock": 8,
+   "c": "#be185d",
+   "tint": "#fdf2f8",
+   "tc": "#9d174d",
+   "imgs": [
+    "https://m.media-amazon.com/images/I/91K9WWl3esL._AC_UF1000,1000_QL80_.jpg"
+   ]
+  },
+  {
+   "id": 1,
+   "name": "Chainsaw Man Vol. 15",
+   "by": "Tatsuki Fujimoto",
+   "pub": "Editorial Norma",
+   "cat": "m",
+   "price": 11.75,
+   "stock": 12,
+   "c": "#b91c1c",
+   "tint": "#fef2f2",
+   "tc": "#991b1b",
+   "imgs": [
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8IgaN8Nt_3mtP9OBIHrUcaNdpAlEVtOrmHWQERJ6VkGkkA4GF3adPWH0&s=10"
+   ]
+  },
+  {
+   "id": 2,
+   "name": "One Punch Man Vol. 2",
+   "by": "ONE · Yusuke Murata",
+   "pub": "Edición en español",
+   "cat": "m",
+   "price": 12.25,
+   "stock": 9,
+   "c": "#a16207",
+   "tint": "#fefce8",
+   "tc": "#854d0e",
+   "imgs": [
+    "https://images.cdn1.buscalibre.com/fit-in/360x360/a8/0d/a80dac5e6bb182505e4c15061e749220.jpg"
+   ]
+  },
+  {
+   "id": 3,
+   "name": "Grand Blue Dreaming Vol. 3",
+   "by": "Kenji Inoue",
+   "pub": "Edición en español",
+   "cat": "m",
+   "price": 13.9,
+   "stock": 5,
+   "c": "#0369a1",
+   "tint": "#f0f9ff",
+   "tc": "#075985",
+   "imgs": [
+    "https://i5.walmartimages.com/seo/Grand-Blue-Dreaming-Grand-Blue-Dreaming-3-Series-3-Paperback-9781632366689_4c62ed64-fe0a-40e9-a746-f7ca691cb897.1425cb2001dcaae840896d8a6a0f5ce3.jpeg"
+   ]
+  },
+  {
+   "id": 4,
+   "name": "Spy × Family Vol. 8",
+   "by": "Tatsuya Endo",
+   "pub": "Edición en español",
+   "cat": "m",
+   "price": 12,
+   "stock": 7,
+   "c": "#15803d",
+   "tint": "#f0fdf4",
+   "tc": "#166534",
+   "imgs": [
+    "https://m.media-amazon.com/images/I/71M9PFO+2zL._AC_UF1000,1000_QL80_.jpg"
+   ]
+  },
+  {
+   "id": 5,
+   "name": "Frieren Vol. 6",
+   "by": "Kanehito Yamada",
+   "pub": "Edición en español",
+   "cat": "m",
+   "price": 12.9,
+   "stock": 10,
+   "c": "#6d28d9",
+   "tint": "#f5f3ff",
+   "tc": "#5b21b6",
+   "imgs": [
+    "https://cdn.kobo.com/book-images/7d2d3e7c-2068-410f-a769-049078c1f64f/1200/1200/False/frieren-beyond-journey-s-end-vol-6.jpg"
+   ]
+  },
+  {
+   "id": 6,
+   "name": "Youkoso Jitsuryoku Vol. 25",
+   "by": "Shōgo Kinugasa",
+   "pub": "Yen Press",
+   "cat": "n",
+   "price": 16,
+   "stock": 3,
+   "c": "#0f766e",
+   "tint": "#f0fdfa",
+   "tc": "#115e59",
+   "imgs": [
+    "https://animeclassroom.netlify.app/uploads/vol27.png"
+   ]
+  },
+  {
+   "id": 7,
+   "name": "Date a Live Vol. 16",
+   "by": "Koushi Tachibana",
+   "pub": "Yen Press",
+   "cat": "n",
+   "price": 17.5,
+   "stock": 6,
+   "c": "#be123c",
+   "tint": "#fff1f2",
+   "tc": "#9f1239",
+   "imgs": [
+    "https://m.media-amazon.com/images/I/81zMbqqXYdL._AC_UF1000,1000_QL80_.jpg"
+   ]
+  },
+  {
+   "id": 8,
+   "name": "Mushoku Tensei Vol. 7",
+   "by": "Rifujin na Magonote",
+   "pub": "Yen Press",
+   "cat": "n",
+   "price": 15.5,
+   "stock": 4,
+   "c": "#4338ca",
+   "tint": "#eef2ff",
+   "tc": "#3730a3",
+   "imgs": [
+    "https://cdn.kobo.com/book-images/fc8c09c5-30e4-44bc-be58-c41e434144dc/1200/1200/False/mushoku-tensei-jobless-reincarnation-light-novel-vol-7.jpg"
+   ]
+  },
+  {
+   "id": 9,
+   "name": "Furina 1/7 Genshin Impact",
+   "by": "Good Smile Company",
+   "pub": "HoYoverse Licensed",
+   "cat": "f",
+   "price": 189,
+   "stock": 99,
+   "c": "#2563eb",
+   "tint": "#eff6ff",
+   "tc": "#1e40af",
+   "pre": "Preventa oficial · nov. 2026",
+   "imgs": [
+    "https://i.pinimg.com/736x/e0/2a/3a/e02a3acafb076e5d431a587d8a7a54a1.jpg"
+   ]
+  },
+  {
+   "id": 10,
+   "name": "Misono Mika 1/7 Shizuku-tan",
+   "by": "Aniplex+",
+   "pub": "CloverWorks Licensed",
+   "cat": "f",
+   "price": 174,
+   "stock": 2,
+   "c": "#db2777",
+   "tint": "#fdf2f8",
+   "tc": "#9d174d",
+   "imgs": [
+    "https://japan-figure.com/cdn/shop/files/Blue-Archive--Misono-Mika--17--Call-Of-The-Stars-Good-Smile-Company-4580590197138-0.jpg?v=1730357978"
+   ]
+  },
+  {
+   "id": 11,
+   "name": "Satoru Gojo 1/8 Jujutsu Kaisen",
+   "by": "Kotobukiya",
+   "pub": "TOHO Animation",
+   "cat": "f",
+   "price": 164.9,
+   "stock": 99,
+   "c": "#334155",
+   "tint": "#f1f5f9",
+   "tc": "#1e293b",
+   "pre": "Preventa oficial · ene. 2027",
+   "imgs": [
+    "https://yolopark.com/cdn/shop/products/40026-Jujutsu-Kaisen-Figure-Fighting-Mode-Satoru-Gojo-03_1024x1024@2x.jpg?v=1666959987"
+   ]
+  },
+  {
+   "id": 12,
+   "name": "Tonikaku Kawaii Vol. 4",
+   "by": "Kenjiro Hata",
+   "pub": "Edición por confirmar",
+   "cat": "m",
+   "price": 12.9,
+   "stock": 6,
+   "c": "#0ea5e9",
+   "tint": "#f0f9ff",
+   "tc": "#0369a1",
+   "imgs": [
+    "https://www.manga-news.com/public/images/vols/Tonikaku_Kawaii_-_T5_-_Noeve.webp"
+   ]
+  },
+  {
+   "id": 13,
+   "name": "Yofukashi no Uta Vol. 6",
+   "by": "Kotoyama",
+   "pub": "Edición en inglés",
+   "cat": "m",
+   "price": 13.5,
+   "stock": 9,
+   "c": "#312e81",
+   "tint": "#eef2ff",
+   "tc": "#3730a3",
+   "imgs": [
+    "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1610126839i/55611356.jpg"
+   ]
+  },
+  {
+   "id": 14,
+   "name": "Ranma 1/2 Vol. 23",
+   "by": "Rumiko Takahashi",
+   "pub": "Edición en inglés",
+   "cat": "m",
+   "price": 14.5,
+   "stock": 7,
+   "c": "#dc2626",
+   "tint": "#fef2f2",
+   "tc": "#991b1b",
+   "imgs": [
+    "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1262225689i/7456259.jpg"
+   ]
+  },
+  {
+   "id": 15,
+   "name": "Otome Game Sekai wa Mob ni Kibishii Sekai desu Vol. 8",
+   "by": "Yomu Mishima",
+   "pub": "Edición en inglés",
+   "cat": "n",
+   "price": 16.5,
+   "stock": 5,
+   "c": "#9333ea",
+   "tint": "#faf5ff",
+   "tc": "#6b21a8",
+   "imgs": [
+    "https://static.wikia.nocookie.net/otome-games-is-tough-for-mobs/images/e/ed/Vol.8-00_EN.png/revision/latest?cb=20220930143222"
+   ]
+  },
+  {
+   "id": 16,
+   "name": "Tensei shitara Slime Datta Ken Vol. 18",
+   "by": "Fuse · Taiki Kawakami",
+   "pub": "Edición especial en español",
+   "cat": "n",
+   "price": 18,
+   "stock": 8,
+   "c": "#0891b2",
+   "tint": "#ecfeff",
+   "tc": "#155e75",
+   "imgs": [
+    "https://img.anmosugoi.com/file/media-sugoi/2021/06/Tensei-Shitara-Slime-Datta-Ken-vol-18-manga-edicion-especial.jpg"
+   ]
+  },
+  {
+   "id": 17,
+   "name": "Otonari no Tenshi-sama Vol. 5",
+   "by": "Saekisan",
+   "pub": "Edición en inglés",
+   "cat": "n",
+   "price": 16,
+   "stock": 4,
+   "c": "#ca8a04",
+   "tint": "#fefce8",
+   "tc": "#854d0e",
+   "imgs": [
+    "https://static.wikia.nocookie.net/otonari-no-tenshi/images/8/8d/LN_V5_Cover.jpg/revision/latest/scale-to-width/360?cb=20220113055058"
+   ]
+  },
+  {
+   "id": 18,
+   "name": "Watashi ga Koibito ni Nareru Wake Nai jan, Muri Muri! Vol. 7",
+   "by": "Teren Mikami",
+   "pub": "Seven Seas Entertainment",
+   "cat": "n",
+   "price": 16.5,
+   "stock": 6,
+   "c": "#db2777",
+   "tint": "#fdf2f8",
+   "tc": "#9d174d",
+   "imgs": [
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpNA7uSIXfNvToHCS11-i0qzSG7c0auemW0C3ZLmSfKmbTD8ByfY8ha__9&s=10"
+   ]
+  },
+  {
+   "id": 19,
+   "name": "Ore wa Seikan Kokka no Akutoku Ryoushu! Vol. 8",
+   "by": "Yomu Mishima",
+   "pub": "Edición por confirmar",
+   "cat": "n",
+   "price": 15.5,
+   "stock": 3,
+   "c": "#1d4ed8",
+   "tint": "#eff6ff",
+   "tc": "#1e40af",
+   "imgs": [
+    "https://jpbookstore.com/cdn/shop/products/91m20JNuAXL._SL1500.jpg?v=1706530174&width=800"
+   ]
+  },
+  {
+   "id": 20,
+   "name": "Make Heroine ga Oosugiru! Vol. 8",
+   "by": "Takibi Amamori",
+   "pub": "Edición por confirmar",
+   "cat": "n",
+   "price": 15.5,
+   "stock": 10,
+   "c": "#ea580c",
+   "tint": "#fff7ed",
+   "tc": "#9a3412",
+   "imgs": [
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQcmMiHXYUjx3TxUAu_oUVR_280ofc_NEpi7PmG1bC6YUCgYbVpR0_pcTk&s=10"
+   ]
+  },
+  {
+   "id": 21,
+   "name": "Megumin KonoSuba",
+   "by": "Fabricante por confirmar",
+   "pub": "Serie: KonoSuba",
+   "cat": "f",
+   "price": 62,
+   "stock": 4,
+   "c": "#7c2d12",
+   "tint": "#fff7ed",
+   "tc": "#7c2d12",
+   "imgs": [
+    "https://i.pinimg.com/736x/b0/bb/7d/b0bb7d6fda8b06ad3d4a6e9f4003b72b.jpg"
+   ]
+  },
+  {
+   "id": 22,
+   "name": "Shingeki no Kyojin",
+   "by": "Fabricante por confirmar",
+   "pub": "Serie: Attack on Titan",
+   "cat": "f",
+   "price": 38,
+   "stock": 6,
+   "c": "#475569",
+   "tint": "#f8fafc",
+   "tc": "#334155",
+   "imgs": [
+    "https://ae-pic-a1.aliexpress-media.com/kf/S8f8ef107ffe242e4a53a358b0de17993m.jpg"
+   ]
+  },
+  {
+   "id": 23,
+   "name": "Dan Da Dan Set de figuras",
+   "by": "Fabricante por confirmar",
+   "pub": "Serie: Dan Da Dan",
+   "cat": "f",
+   "price": 45,
+   "stock": 5,
+   "c": "#16a34a",
+   "tint": "#f0fdf4",
+   "tc": "#166534",
+   "imgs": [
+    "https://aldeaoculta.com/_next/image?url=https%3A%2F%2Fcms.aldeaoculta.com%2Fwp-content%2Fuploads%2F2026%2F08%2FDanDaDan_SetFiguras.jpg&w=3840&q=75"
+   ]
+  },
+  {
+   "id": 24,
+   "name": "Ikuyo Kita 1/7 Bocchi the Rock!",
+   "by": "Fabricante por confirmar",
+   "pub": "Serie: Bocchi the Rock!",
+   "cat": "f",
+   "price": 149,
+   "stock": 3,
+   "c": "#e11d48",
+   "tint": "#fff1f2",
+   "tc": "#9f1239",
+   "imgs": [
+    "https://dendenotakushop.com/cdn/shop/files/1_7ScaleIkuyoKitaBocchietheRock__0_2048x.jpg?v=1760494027"
+   ]
+  },
+  {
+   "id": 25,
+   "name": "Satono Diamond Uma Musume",
+   "by": "Fabricante por confirmar",
+   "pub": "Serie: Uma Musume",
+   "cat": "f",
+   "price": 135,
+   "stock": 2,
+   "c": "#0d9488",
+   "tint": "#f0fdfa",
+   "tc": "#115e59",
+   "imgs": [
+    "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnzd668XUz3tWp6loRo07RXx2Brclag5WQZZMYR1TYJYRPJ6BdY6nEPq_J&s=10"
+   ]
+  }
+ ],
+ "IMG": [
+  "https://m.media-amazon.com/images/I/91K9WWl3esL._AC_UF1000,1000_QL80_.jpg",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8IgaN8Nt_3mtP9OBIHrUcaNdpAlEVtOrmHWQERJ6VkGkkA4GF3adPWH0&s=10",
+  "https://images.cdn1.buscalibre.com/fit-in/360x360/a8/0d/a80dac5e6bb182505e4c15061e749220.jpg",
+  "https://i5.walmartimages.com/seo/Grand-Blue-Dreaming-Grand-Blue-Dreaming-3-Series-3-Paperback-9781632366689_4c62ed64-fe0a-40e9-a746-f7ca691cb897.1425cb2001dcaae840896d8a6a0f5ce3.jpeg",
+  "https://m.media-amazon.com/images/I/71M9PFO+2zL._AC_UF1000,1000_QL80_.jpg",
+  "https://cdn.kobo.com/book-images/7d2d3e7c-2068-410f-a769-049078c1f64f/1200/1200/False/frieren-beyond-journey-s-end-vol-6.jpg",
+  "https://animeclassroom.netlify.app/uploads/vol27.png",
+  "https://m.media-amazon.com/images/I/81zMbqqXYdL._AC_UF1000,1000_QL80_.jpg",
+  "https://cdn.kobo.com/book-images/fc8c09c5-30e4-44bc-be58-c41e434144dc/1200/1200/False/mushoku-tensei-jobless-reincarnation-light-novel-vol-7.jpg",
+  "https://i.pinimg.com/736x/e0/2a/3a/e02a3acafb076e5d431a587d8a7a54a1.jpg",
+  "https://japan-figure.com/cdn/shop/files/Blue-Archive--Misono-Mika--17--Call-Of-The-Stars-Good-Smile-Company-4580590197138-0.jpg?v=1730357978",
+  "https://yolopark.com/cdn/shop/products/40026-Jujutsu-Kaisen-Figure-Fighting-Mode-Satoru-Gojo-03_1024x1024@2x.jpg?v=1666959987",
+  "https://www.manga-news.com/public/images/vols/Tonikaku_Kawaii_-_T5_-_Noeve.webp",
+  "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1610126839i/55611356.jpg",
+  "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1262225689i/7456259.jpg",
+  "https://static.wikia.nocookie.net/otome-games-is-tough-for-mobs/images/e/ed/Vol.8-00_EN.png/revision/latest?cb=20220930143222",
+  "https://img.anmosugoi.com/file/media-sugoi/2021/06/Tensei-Shitara-Slime-Datta-Ken-vol-18-manga-edicion-especial.jpg",
+  "https://static.wikia.nocookie.net/otonari-no-tenshi/images/8/8d/LN_V5_Cover.jpg/revision/latest/scale-to-width/360?cb=20220113055058",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpNA7uSIXfNvToHCS11-i0qzSG7c0auemW0C3ZLmSfKmbTD8ByfY8ha__9&s=10",
+  "https://jpbookstore.com/cdn/shop/products/91m20JNuAXL._SL1500.jpg?v=1706530174&width=800",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQcmMiHXYUjx3TxUAu_oUVR_280ofc_NEpi7PmG1bC6YUCgYbVpR0_pcTk&s=10",
+  "https://i.pinimg.com/736x/b0/bb/7d/b0bb7d6fda8b06ad3d4a6e9f4003b72b.jpg",
+  "https://ae-pic-a1.aliexpress-media.com/kf/S8f8ef107ffe242e4a53a358b0de17993m.jpg",
+  "https://aldeaoculta.com/_next/image?url=https%3A%2F%2Fcms.aldeaoculta.com%2Fwp-content%2Fuploads%2F2026%2F08%2FDanDaDan_SetFiguras.jpg&w=3840&q=75",
+  "https://dendenotakushop.com/cdn/shop/files/1_7ScaleIkuyoKitaBocchietheRock__0_2048x.jpg?v=1760494027",
+  "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSnzd668XUz3tWp6loRo07RXx2Brclag5WQZZMYR1TYJYRPJ6BdY6nEPq_J&s=10"
+ ],
+ "D": [
+  "Mayonaka Heart Tune es un manga de romance juvenil escrito e ilustrado por Masakuni Igarashi. Este es el primer tomo de la serie, ideal para empezar la colección desde el principio.",
+  "Chainsaw Man sigue a Denji, un joven cazador de demonios que convive con Pochita, su compañero demonio motosierra. El volumen 15 continúa la acción y el humor negro característicos de Tatsuki Fujimoto.",
+  "One Punch Man, de ONE con arte de Yusuke Murata, es una comedia de superhéroes protagonizada por Saitama, un héroe capaz de vencer a cualquier enemigo de un solo golpe. El volumen 2 continúa sus aventuras.",
+  "Grand Blue Dreaming es una comedia universitaria de Kenji Inoue sobre un club de buceo, fiestas y situaciones absurdas. Edición en español del volumen 3.",
+  "Spy × Family, de Tatsuya Endo, cuenta la historia de un espía, una asesina y una niña telépata que forman una familia falsa. Acción y comedia familiar en este volumen 8.",
+  "Frieren, con guion de Kanehito Yamada, sigue a la maga elfa Frieren mientras recorre el mundo tiempo después del viaje del grupo de héroes. Tomo 6 de la serie.",
+  "Youkoso Jitsuryoku Shijou Shugi no Kyoushitsu e (Classroom of the Elite) es una serie de novelas ligeras de Shōgo Kinugasa ambientada en una academia donde el mérito lo define todo. Volumen 25, edición en inglés de Yen Press.",
+  "Date a Live, de Koushi Tachibana, es una serie de novelas ligeras en la que el protagonista debe conquistar a poderosos espíritus para salvar el mundo. Volumen 16, edición en inglés de Yen Press.",
+  "Mushoku Tensei: Jobless Reincarnation, de Rifujin na Magonote, es una novela ligera isekai sobre un hombre que renace en un mundo de magia y empieza su vida de nuevo. Volumen 7, edición en inglés de Yen Press.",
+  "Figura a escala 1/7 de Furina, personaje de Genshin Impact, fabricada por Good Smile Company con licencia de HoYoverse. Preventa oficial con llegada estimada en noviembre de 2026.",
+  "Figura a escala 1/7 de Misono Mika (Shizuku-tan), distribuida por Aniplex+ con licencia de CloverWorks. Quedan pocas unidades en stock.",
+  "Figura a escala 1/8 de Satoru Gojo de Jujutsu Kaisen, fabricada por Kotobukiya con licencia de TOHO Animation. Preventa oficial con llegada estimada en enero de 2027.",
+  "Tonikaku Kawaii (Tonikawa), de Kenjiro Hata, es una comedia romántica sobre una pareja de recién casados. Este es el volumen 4 de la serie.",
+  "Yofukashi no Uta (Call of the Night), de Kotoyama, sigue a un joven con insomnio que conoce a una vampira durante las noches de la ciudad. Volumen 6.",
+  "Ranma 1/2, de Rumiko Takahashi, es el clásico de comedia y artes marciales en el que Ranma se transforma en chica al mojarse con agua fría. Volumen 23.",
+  "Novela ligera de Yomu Mishima ambientada en el mundo de un otome game, donde el protagonista renace como un personaje secundario. Volumen 8, edición en inglés.",
+  "Tensei shitara Slime Datta Ken sigue a un hombre que renace como un slime en otro mundo. Volumen 18, edición especial en español.",
+  "Otonari no Tenshi-sama ni Itsunomanika Dame Ningen ni Sareteita Ken, de Saekisan, es una historia de romance escolar entre un joven y su vecina, a quien todos llaman “el ángel”. Volumen 5, edición en inglés.",
+  "Watashi ga Koibito ni Nareru Wake Nai jan, Muri Muri!, de Teren Mikami, es una novela ligera yuri de comedia romántica. Volumen 7, edición de Seven Seas Entertainment.",
+  "Ore wa Seikan Kokka no Akutoku Ryoushu!, de Yomu Mishima, es una novela ligera de ciencia ficción y aventura. Volumen 8.",
+  "Make Heroine ga Oosugiru! (Too Many Losing Heroines!), de Takibi Amamori, es una comedia romántica escolar en formato de novela ligera. Volumen 8.",
+  "Figura coleccionable de Megumin, la maga de explosiones de KonoSuba.",
+  "Figura coleccionable de Shingeki no Kyojin (Attack on Titan).",
+  "Set de figuras coleccionables de la serie Dan Da Dan.",
+  "Figura a escala 1/7 de Ikuyo Kita, de Bocchi the Rock!",
+  "Figura coleccionable de Satono Diamond, de Uma Musume Pretty Derby."
+ ],
+ "CAT": {
+  "m": "Manga",
+  "n": "Novela ligera",
+  "f": "Figura"
+ },
+ "CATP": {
+  "m": "Mangas",
+  "n": "Novelas ligeras",
+  "f": "Figuras"
+ },
+ "CITY": {
+  "Azuay": [
+   "Cuenca",
+   "Gualaceo",
+   "Paute",
+   "Sígsig",
+   "Santa Isabel",
+   "Girón",
+   "Chordeleg",
+   "Otra ciudad de la provincia"
+  ],
+  "Bolívar": [
+   "Guaranda",
+   "San Miguel",
+   "Chillanes",
+   "Caluma",
+   "Otra ciudad de la provincia"
+  ],
+  "Cañar": [
+   "Azogues",
+   "Cañar",
+   "La Troncal",
+   "Biblián",
+   "Otra ciudad de la provincia"
+  ],
+  "Carchi": [
+   "Tulcán",
+   "San Gabriel",
+   "El Ángel",
+   "Mira",
+   "Otra ciudad de la provincia"
+  ],
+  "Chimborazo": [
+   "Riobamba",
+   "Guano",
+   "Alausí",
+   "Colta",
+   "Chambo",
+   "Otra ciudad de la provincia"
+  ],
+  "Cotopaxi": [
+   "Latacunga",
+   "Salcedo",
+   "Pujilí",
+   "La Maná",
+   "Saquisilí",
+   "Otra ciudad de la provincia"
+  ],
+  "El Oro": [
+   "Machala",
+   "Pasaje",
+   "Santa Rosa",
+   "Huaquillas",
+   "Arenillas",
+   "Zaruma",
+   "Piñas",
+   "Otra ciudad de la provincia"
+  ],
+  "Esmeraldas": [
+   "Esmeraldas",
+   "Atacames",
+   "Quinindé",
+   "San Lorenzo",
+   "Muisne",
+   "Otra ciudad de la provincia"
+  ],
+  "Galápagos": [
+   "Puerto Ayora",
+   "Puerto Baquerizo Moreno",
+   "Puerto Villamil",
+   "Otra ciudad de la provincia"
+  ],
+  "Guayas": [
+   "Guayaquil",
+   "Durán",
+   "Samborondón",
+   "Daule",
+   "Milagro",
+   "Playas",
+   "Naranjal",
+   "El Triunfo",
+   "Otra ciudad de la provincia"
+  ],
+  "Imbabura": [
+   "Ibarra",
+   "Otavalo",
+   "Cotacachi",
+   "Atuntaqui",
+   "Pimampiro",
+   "Otra ciudad de la provincia"
+  ],
+  "Loja": [
+   "Loja",
+   "Catamayo",
+   "Macará",
+   "Cariamanga",
+   "Saraguro",
+   "Otra ciudad de la provincia"
+  ],
+  "Los Ríos": [
+   "Babahoyo",
+   "Quevedo",
+   "Ventanas",
+   "Vinces",
+   "Buena Fe",
+   "Valencia",
+   "Otra ciudad de la provincia"
+  ],
+  "Manabí": [
+   "Portoviejo",
+   "Manta",
+   "Chone",
+   "Jipijapa",
+   "Montecristi",
+   "Bahía de Caráquez",
+   "Calceta",
+   "El Carmen",
+   "Otra ciudad de la provincia"
+  ],
+  "Morona Santiago": [
+   "Macas",
+   "Gualaquiza",
+   "Sucúa",
+   "Limón Indanza",
+   "Otra ciudad de la provincia"
+  ],
+  "Napo": [
+   "Tena",
+   "Archidona",
+   "El Chaco",
+   "Otra ciudad de la provincia"
+  ],
+  "Orellana": [
+   "Francisco de Orellana (Coca)",
+   "La Joya de los Sachas",
+   "Loreto",
+   "Otra ciudad de la provincia"
+  ],
+  "Pastaza": [
+   "Puyo",
+   "Mera",
+   "Shell",
+   "Otra ciudad de la provincia"
+  ],
+  "Pichincha": [
+   "Quito",
+   "Cayambe",
+   "Sangolquí",
+   "Machachi",
+   "Tabacundo",
+   "Pedro Vicente Maldonado",
+   "Puerto Quito",
+   "San Miguel de los Bancos",
+   "Otra ciudad de la provincia"
+  ],
+  "Santa Elena": [
+   "Santa Elena",
+   "La Libertad",
+   "Salinas",
+   "Otra ciudad de la provincia"
+  ],
+  "Santo Domingo de los Tsáchilas": [
+   "Santo Domingo",
+   "La Concordia",
+   "Otra ciudad de la provincia"
+  ],
+  "Sucumbíos": [
+   "Nueva Loja (Lago Agrio)",
+   "Shushufindi",
+   "Cascales",
+   "Otra ciudad de la provincia"
+  ],
+  "Tungurahua": [
+   "Ambato",
+   "Baños",
+   "Pelileo",
+   "Píllaro",
+   "Cevallos",
+   "Otra ciudad de la provincia"
+  ],
+  "Zamora Chinchipe": [
+   "Zamora",
+   "Yantzaza",
+   "Zumba",
+   "El Pangui",
+   "Otra ciudad de la provincia"
+  ]
+ }
+}

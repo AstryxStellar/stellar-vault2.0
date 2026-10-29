@@ -1,0 +1,10 @@
+{
+  "name": "stellar-vault",
+  "version": "1.0.0",
+  "description": "Tienda de mangas, novelas ligeras y figuras (SQLite + Node, sin dependencias)",
+  "scripts": {
+    "start": "node server/server.js",
+    "db:reset": "node -e \"for (const f of ['tienda.db','tienda.db-wal','tienda.db-shm']) try { require('fs').unlinkSync('server/'+f) } catch {}\" && node server/server.js"
+  },
+  "engines": { "node": ">=22.13" }
+}
