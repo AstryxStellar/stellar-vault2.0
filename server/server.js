@@ -44,7 +44,7 @@ function limitar(req, clave, max, ventanaMs) {
   if (++h.n > max) throw new HttpError(429, { error: 'Demasiados intentos. Espera un momento e inténtalo de nuevo.' });
 }
 setInterval(() => { const n = Date.now(); for (const [k, h] of golpes) if (h.t < n) golpes.delete(k); }, 60000).unref();
-const LIMITES = { 'POST /api/login': [10, 60000], 'POST /api/registro': [5, 600000], 'POST /api/reenviar': [5, 600000], 'POST /api/pedidos': [20, 60000], 'POST /api/comentarios': [20, 60000], 'POST /api/favoritos': [60, 60000] };
+const LIMITES = { 'POST /api/login': [10, 60000], 'POST /api/registro': [5, 600000], 'POST /api/reenviar': [5, 600000], 'POST /api/google': [20, 60000], 'POST /api/pedidos': [20, 60000], 'POST /api/comentarios': [20, 60000], 'POST /api/favoritos': [60, 60000] };
 const exigirSesion = (user, msg = 'Inicia sesión para continuar.') => { if (!user) throw new HttpError(401, { error: msg, requiereLogin: true }); return user; };
 
 // El navegador que inició el registro recibe un código secreto para saber cuándo se verificó el correo.
@@ -119,7 +119,7 @@ const rutas = {
   'GET /api/bootstrap': () => {
     const prov = {};
     q('SELECT p.nombre prov,c.nombre ciudad FROM ciudades c JOIN provincias p ON p.id=c.provincia_id ORDER BY p.nombre,c.id').forEach(r => (prov[r.prov] ||= []).push(r.ciudad));
-    return { config: cfg(), categorias: q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos: productos(), provincias: prov, reglas: reglas(), comentarios: comentarios() };
+    return { config: cfg(), categorias: q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos: productos(), provincias: prov, reglas: reglas(), comentarios: comentarios(), google: process.env.GOOGLE_CLIENT_ID || null };
   },
   'GET /api/comentarios': () => ({ comentarios: comentarios() }),
   'POST /api/comentarios': ({ body, user }) => {
@@ -177,6 +177,29 @@ const rutas = {
     const u = one('SELECT id,nombre,email,password_hash,verificado FROM usuarios WHERE email=?', String(body.email).trim());
     if (!u || !checkPassword(String(body.password || ''), u.password_hash)) throw new HttpError(401, { error: 'Correo o contraseña incorrectos.' });
     if (!u.verificado) throw new HttpError(403, { error: 'Aún no verificas tu correo. Revisa tu bandeja de entrada o pide que te reenviemos el enlace.', noVerificado: true, email: u.email, seguimiento: nuevoSeguimiento(u.id) });
+    return { token: sesion(u.id), usuario: publico(u) };
+  },
+  // Inicio de sesión con Google: el navegador manda el "credential" (token de Google) y aquí se verifica con Google.
+  'POST /api/google': async ({ body }) => {
+    const cid = process.env.GOOGLE_CLIENT_ID;
+    if (!cid) throw new HttpError(503, { error: 'El inicio de sesión con Google aún no está configurado en el servidor.' });
+    const cred = String(body.credential || '');
+    if (cred.length < 20 || cred.length > 4000) throw new HttpError(422, { error: 'Respuesta de Google no válida.' });
+    let info;
+    try {
+      const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(cred));
+      if (!r.ok) throw new Error('rechazado');
+      info = await r.json();
+    } catch { throw new HttpError(401, { error: 'No pudimos verificar tu cuenta de Google. Intenta de nuevo.' }); }
+    if (info.aud !== cid || String(info.email_verified) !== 'true' || !info.email) throw new HttpError(401, { error: 'Tu cuenta de Google no pudo verificarse.' });
+    const email = String(info.email).toLowerCase();
+    let nombre = String(info.name || email.split('@')[0]).trim().slice(0, 80);
+    if (nombre.length < 2) nombre = email.split('@')[0].padEnd(2, '_');
+    let u = one('SELECT id,nombre,email FROM usuarios WHERE email=?', email);
+    if (!u) {
+      const r = run('INSERT INTO usuarios(nombre,email,password_hash,verificado) VALUES (?,?,?,1)', nombre, email, hashPassword(crypto.randomBytes(24).toString('hex')));
+      u = { id: Number(r.lastInsertRowid), nombre, email };
+    } else run('UPDATE usuarios SET verificado=1 WHERE id=?', u.id); // Google ya comprobó que el correo es suyo
     return { token: sesion(u.id), usuario: publico(u) };
   },
   'POST /api/logout': ({ req }) => { run('DELETE FROM sesiones WHERE token=?', (req.headers.authorization || '').replace(/^Bearer /, '')); return { ok: true }; },
