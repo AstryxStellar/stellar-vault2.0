@@ -24,6 +24,13 @@ function homeRow(t,sub,html,link){
  if(!html)return"";
  return `<section class="hrow"><div class="sech"><div><h2 class="h2" style="margin:0">${t}</h2><p class="sub" style="margin:2px 0 0">${sub}</p></div>${link?`<button class="alink" onclick="${link}">Ver todas →</button>`:""}</div>${html}</section>`}
 const gridOf=l=>l.length?`<div class="grid">${l.map(card).join("")}</div>`:"";
+// Recuadro dentro de la tarjeta de un producto: muestra con qué productos viene el pack y cuánto se ahorra
+function packMini(k,actual){
+ const sum=packSum(k),price=packPrice(k);
+ return `<div class="pk-mini"><div class="pk-mini-t">📦 <b>Pack ${esc(k.name.replace(/^Pack /,""))}</b> <span class="pk-pct">−${k.pct}%</span></div>
+ <div class="pk-mini-i" role="group" aria-label="Productos del pack">${k.ids.map(i=>`<a href="${prodUrl(i)}" title="${esc(P[i].name)}" class="${i===actual?"cur":""}" aria-label="${esc(P[i].name)}">${cover(P[i],44)}</a>`).join('<span aria-hidden="true">+</span>')}</div>
+ <div class="pk-mini-p">Los ${k.ids.length} por <b>${money(price)}</b> <s class="was">${money(sum)}</s></div>
+ <button class="pk-add" onclick="addPack(${k.id})">Añadir pack al carrito</button></div>`}
 function packCard(k){
  const sum=packSum(k),price=packPrice(k);
  return `<article class="pack" aria-label="${esc(k.name)}"><div class="pk-top"><span class="pk-pct">📦 −${k.pct}%</span><h3>${esc(k.name)}</h3></div>
@@ -58,17 +65,18 @@ function catalog(){
  list.sort((a,b)=>"mnf".indexOf(a.cat)-"mnf".indexOf(b.cat)||a.id-b.id);
  const cnt=c=>P.filter(p=>p.cat===c).length;
  const key=[...F.cats].join()+"|"+F.av+"|"+F.q;if(key!==catKey){catKey=key;catPage=1}
- const pages=Math.max(1,Math.ceil(list.length/PAGE_SIZE));if(catPage>pages)catPage=pages;
- const from=(catPage-1)*PAGE_SIZE,part=list.slice(from,from+PAGE_SIZE);
- $("#app").innerHTML=`<h1 class="h2" id="cat" tabindex="-1">Catálogo de artículos</h1><p class="sub">${list.length?`Mostrando ${from+1}–${from+part.length} de ${list.length} producto${list.length===1?"":"s"}`:"Sin resultados"}</p>
+ const packMode=F.av==="pack",plist=packMode?PACKS.filter(k=>k.ids.some(i=>F.cats.has(P[i].cat))&&(k.name+" "+k.ids.map(i=>P[i].name+P[i].by).join(" ")).toLowerCase().includes(F.q.toLowerCase())):[],N=packMode?plist.length:list.length; // con el filtro «Packs» se listan los packs, no los productos sueltos
+ const pages=Math.max(1,Math.ceil(N/PAGE_SIZE));if(catPage>pages)catPage=pages;
+ const from=(catPage-1)*PAGE_SIZE,part=(packMode?plist:list).slice(from,from+PAGE_SIZE);
+ $("#app").innerHTML=`<h1 class="h2" id="cat" tabindex="-1">Catálogo de artículos</h1><p class="sub">${N?`Mostrando ${from+1}–${from+part.length} de ${N} ${packMode?"pack":"producto"}${N===1?"":"s"}`:"Sin resultados"}</p>
  <div class="layout"><aside class="panel"><h2>Filtros</h2><small>Refina tu búsqueda</small>
  <div class="lbl">CATEGORÍAS</div>
  ${CATS().map(([k,t])=>`<label class="opt"><input type="checkbox" ${F.cats.has(k)?"checked":""} onchange="togCat('${k}')"><span>${t}</span><span>${cnt(k)}</span></label>`).join("")}
  <div class="lbl">DISPONIBILIDAD</div>
- ${[["all","Todos",P.length],["stock","En stock",P.filter(p=>!p.pre).length],["pre","Preventa oficial",P.filter(p=>p.pre).length],["pack","📦 En pack",P.filter(p=>packsOf(p.id).length).length],["rebaja","🏷️ Rebajas",P.filter(p=>p.was).length]].map(([k,t,n])=>`<label class="opt"><input type="radio" name="av" ${F.av===k?"checked":""} onchange="F.av='${k}';render()"><span>${t}</span><span>${n}</span></label>`).join("")}
+ ${[["all","Todos",P.length],["stock","En stock",P.filter(p=>!p.pre).length],["pre","Preventa oficial",P.filter(p=>p.pre).length],["pack","📦 Packs",PACKS.length],["rebaja","🏷️ Rebajas",P.filter(p=>p.was).length]].map(([k,t,n])=>`<label class="opt"><input type="radio" name="av" ${F.av===k?"checked":""} onchange="F.av='${k}';render()"><span>${t}</span><span>${n}</span></label>`).join("")}
  <button class="reset" onclick="F={cats:new Set(['m','n','f']),av:'all',q:''};$('#q').value='';render()">Restablecer filtros</button>
  <div class="note">Envío gratis desde ${FREE()} USD</div></aside>
- <section>${list.length?CATS().filter(([k])=>part.some(p=>p.cat===k)).map(([k,t])=>{const g=part.filter(p=>p.cat===k),tot=list.filter(p=>p.cat===k).length;return `<section class="cgroup" aria-labelledby="cg${k}"><h2 class="cgh" id="cg${k}">${t} <span>${tot} título${tot===1?"":"s"}</span></h2><div class="grid">${g.map(card).join("")}</div></section>`}).join("")+pager(list.length,catPage,PAGE_SIZE,"cat"):`<div class="panel empty">No encontramos productos con esos filtros.</div>`}</section></div>`;
+ <section>${packMode?(N?`<div class="grid packs">${part.map(packCard).join("")}</div>${pager(N,catPage,PAGE_SIZE,"cat")}`:`<div class="panel empty">No encontramos packs con esos filtros.</div>`):list.length?CATS().filter(([k])=>part.some(p=>p.cat===k)).map(([k,t])=>{const g=part.filter(p=>p.cat===k),tot=list.filter(p=>p.cat===k).length;return `<section class="cgroup" aria-labelledby="cg${k}"><h2 class="cgh" id="cg${k}">${t} <span>${tot} título${tot===1?"":"s"}</span></h2><div class="grid">${g.map(card).join("")}</div></section>`}).join("")+pager(list.length,catPage,PAGE_SIZE,"cat"):`<div class="panel empty">No encontramos productos con esos filtros.</div>`}</section></div>`;
 }
 function coverCss(p,w=100){
  const t=p.name.toUpperCase().split(/ (?=VOL|1\/)/);
@@ -80,9 +88,9 @@ function card(p){
  const inCart=cart[p.id]||0, out=!p.pre&&inCart>=p.stock;
  const st=p.pre?`<div class="stock p">● ${p.pre}</div>`:p.stock<=3?`<div class="stock w">● Últimas ${p.stock} unidades</div>`:`<div class="stock">● En stock · ${p.stock} unidades</div>`;
  const fv=FAV.has(p.id);
- return `<article class="prod" style="--tint:${p.tint};--tc:${p.tc};--c:${p.c}"><button class="fav${fv?" on":""}" data-fav="${p.id}" onclick="toggleFavUI(${p.id})" aria-pressed="${fv}" aria-label="${fv?"Quitar de favoritos":"Añadir a favoritos"}: ${esc(p.name)}">${fv?"♥":"♡"}</button>${packsOf(p.id).length?`<span class="ribbon pk">📦 En pack</span>`:""}${p.was?`<span class="ribbon dsc">🏷️ −${pctOff(p)}%</span>`:""}<a class="thumb" href="${prodUrl(p.id)}" tabindex="-1" aria-hidden="true">${cover(p)}</a>
+ return `<article class="prod" style="--tint:${p.tint};--tc:${p.tc};--c:${p.c}"><button class="fav${fv?" on":""}" data-fav="${p.id}" onclick="toggleFavUI(${p.id})" aria-pressed="${fv}" aria-label="${fv?"Quitar de favoritos":"Añadir a favoritos"}: ${esc(p.name)}">${fv?"♥":"♡"}</button>${p.was?`<span class="ribbon dsc">🏷️ −${pctOff(p)}%</span>`:""}<a class="thumb" href="${prodUrl(p.id)}" tabindex="-1" aria-hidden="true">${cover(p)}</a>
  <span class="tag">${CAT[p.cat]}</span><h3><a href="${prodUrl(p.id)}">${p.name}</a></h3><p>${p.by}</p><p>${p.pub}</p>${st}${inCart?`<div class="stock" style="color:var(--acc);margin-top:-6px">✓ ${inCart} en tu carrito</div>`:""}
- <div class="price">${priceHtml(p)} USD<small>IVA incl.</small></div>${packsOf(p.id).length?`<div class="promo-n">En pack: hasta −${Math.max(...packsOf(p.id).map(k=>k.pct))}%</div>`:""}
+ <div class="price">${priceHtml(p)} USD<small>IVA incl.</small></div>${packsOf(p.id).length?packMini(packsOf(p.id)[0],p.id):""}
  <button class="btn" ${out?"disabled":""} data-add="${p.id}" onclick="add(${p.id})">${out?"Máximo en carrito":p.pre?"Reservar en preventa":"Añadir al carrito"}</button></article>`}
 let tt;function toast(m,lbl,fn,kind){if(typeof LEAVING!=="undefined"&&LEAVING){SS.set("sv_toast",[m,lbl,fn,kind]);return} // el aviso se muestra en la página siguiente
  const t=$("#toast");t.className="toast "+(kind||"ok");t.innerHTML=`<span aria-hidden="true" class="ti">${kind==="del"?"🗑":kind==="warn"?"🔒":"✓"}</span><span>${esc(m)}</span>${lbl===null?"":`<button onclick="${fn||"openCart()"}">${lbl||"Ver carrito"}</button>`}`;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),5000)}
@@ -205,8 +213,9 @@ function markCommentErrors(bad){for(const k of["t"]){const f=$("#cm_"+k).closest
 
 function favs(){
  const list=[...FAV].map(i=>P[i]).filter(Boolean);
- const pages=Math.max(1,Math.ceil(list.length/PAGE_SIZE));if(favPage>pages)favPage=pages;
- const from=(favPage-1)*PAGE_SIZE,part=list.slice(from,from+PAGE_SIZE);
+ const packMode=F.av==="pack",plist=packMode?PACKS.filter(k=>k.ids.some(i=>F.cats.has(P[i].cat))&&(k.name+" "+k.ids.map(i=>P[i].name+P[i].by).join(" ")).toLowerCase().includes(F.q.toLowerCase())):[],N=packMode?plist.length:list.length; // con el filtro «Packs» se listan los packs, no los productos sueltos
+ const pages=Math.max(1,Math.ceil(N/PAGE_SIZE));if(favPage>pages)favPage=pages;
+ const from=(favPage-1)*PAGE_SIZE,part=(packMode?plist:list).slice(from,from+PAGE_SIZE);
  $("#app").innerHTML=`<h1 class="h2" tabindex="-1">Mis favoritos</h1><p class="sub">${list.length?list.length+" producto"+(list.length===1?"":"s")+" guardado"+(list.length===1?"":"s"):"Toca el ♡ de un producto para guardarlo aquí."}</p>
  ${list.length?`<div class="grid">${part.map(card).join("")}</div>${pager(list.length,favPage,PAGE_SIZE,"fav")}`:`<div class="panel empty">Aún no tienes favoritos.<br><button class="btn" style="width:auto;padding:0 20px;margin-top:14px" onclick="goCat(['m','n','f'])">Ver catálogo</button></div>`}`}
 
