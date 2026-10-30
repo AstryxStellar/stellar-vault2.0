@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { openDb, hashPassword, checkPassword } = require('./db');
-const { validar, descuento3x2 } = require('../js/rules.js');
+const { validar, descuentoPacks } = require('../js/rules.js');
 const { enviarCorreo } = require('./mail');
 
 const ROOT = path.join(__dirname, '..');
@@ -119,11 +119,18 @@ const usuarioDe = async req => {
 };
 const sesion = async uid => { const token = crypto.randomBytes(32).toString('hex'); await run('INSERT INTO sesiones(token,usuario_id) VALUES (?,?)', token, uid); return token; };
 
+// Packs vigentes: activos y con todos sus productos a la venta.
+async function packsActivos() {
+  const filas = await q(`SELECT k.id,k.nombre,k.descuento_pct pct,i.producto_id pid,p.activo FROM packs k JOIN pack_items i ON i.pack_id=k.id JOIN productos p ON p.id=i.producto_id WHERE k.activo=1 ORDER BY k.id,i.producto_id`);
+  const m = new Map();
+  for (const r of filas) { const k = m.get(r.id) || { id: r.id, nombre: r.nombre, pct: r.pct, items: [], ok: true }; k.items.push(r.pid); if (!r.activo) k.ok = false; m.set(r.id, k); }
+  return [...m.values()].filter(k => k.ok).map(({ ok, ...k }) => k);
+}
 async function productos() {
   const imgs = {};
   (await q('SELECT producto_id,url FROM imagenes_producto ORDER BY producto_id,orden')).forEach(i => (imgs[i.producto_id] ||= []).push(i.url));
   return (await q(`SELECT p.id AS id,c.codigo AS "cat",p.nombre AS "name",p.autor AS "by",p.editorial AS "pub",p.precio AS "price",p.stock AS "stock",p.color AS "c",p.tinte AS "tint",p.tinte_texto AS "tc",
-                   p.preventa AS "pre",p.destacado AS "dest",p.promo AS "promo",p.precio_antes AS "was",p.descripcion AS "desc",
+                   p.preventa AS "pre",p.destacado AS "dest",p.precio_antes AS "was",p.descripcion AS "desc",
                    (SELECT coalesce(sum(i.cantidad),0) FROM pedido_items i JOIN pedidos pe ON pe.id=i.pedido_id WHERE i.producto_id=p.id AND pe.estado<>'cancelado') AS "sold"
             FROM productos p JOIN categorias c ON c.id=p.categoria_id WHERE p.activo=1 ORDER BY c.orden,p.id`)) // los dados de baja no se muestran
     .map(p => ({ ...p, imgs: imgs[p.id] || [] }));
@@ -231,7 +238,7 @@ async function enviarComprobante(pedidoId) {
       ${filas}</table></td></tr>
   <tr><td style="padding:14px 28px 24px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-      ${desc > 0 ? total('Productos', dinero(p.subtotal + desc)) + total('Promo 3x2', '−' + dinero(desc), false, '#b45309') : ''}
+      ${desc > 0 ? total('Productos', dinero(p.subtotal + desc)) + total('Descuento por packs', '−' + dinero(desc), false, '#b45309') : ''}
       ${total('Subtotal', dinero(p.subtotal))}${total(p.entrega === 'retiro' ? 'Retiro en tienda' : 'Envío', p.envio ? dinero(p.envio) : 'Gratis')}
       <tr><td colspan="2" style="border-bottom:1px solid ${linea};padding-top:10px"></td></tr>
       ${total(pagado ? 'Total pagado' : 'Total a pagar', dinero(p.total) + ' USD', true, '#d6204f')}</table></td></tr>
@@ -280,9 +287,9 @@ const rutas = {
     const prov = {};
     (await q('SELECT p.nombre prov,c.nombre ciudad FROM ciudades c JOIN provincias p ON p.id=c.provincia_id ORDER BY p.nombre,c.id')).forEach(r => (prov[r.prov] ||= []).push(r.ciudad));
     // Con sesión, la misma respuesta trae el usuario y sus favoritos (una sola petición al abrir cada página).
-    const [config, categorias, prods, reg, coms, yo, favs] = await Promise.all([cfg(), q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos(), reglas(), comentarios(),
-      user ? publico(user) : null, user ? favoritos(user.id) : []]);
-    return { config, categorias, productos: prods, provincias: prov, reglas: reg, comentarios: coms, google: process.env.GOOGLE_CLIENT_ID || null, usuario: yo, favoritos: favs };
+    const [config, categorias, prods, reg, coms, yo, favs, packs] = await Promise.all([cfg(), q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos(), reglas(), comentarios(),
+      user ? publico(user) : null, user ? favoritos(user.id) : [], packsActivos()]);
+    return { config, categorias, productos: prods, provincias: prov, reglas: reg, comentarios: coms, google: process.env.GOOGLE_CLIENT_ID || null, usuario: yo, favoritos: favs, packs };
   },
   'GET /api/comentarios': async () => ({ comentarios: await comentarios() }),
   'POST /api/comentarios': async ({ body, user }) => {
@@ -456,14 +463,14 @@ const rutas = {
     if (Object.keys(err).length) throw new HttpError(422, { errores: err });
     if (!['fisico', 'deuna'].includes(body.metodo)) throw new HttpError(422, { error: 'Método de pago no válido.' });
     if (!Array.isArray(body.items) || body.items.length > 50) throw new HttpError(422, { error: 'Tu carrito tiene demasiados productos distintos.' });
-    const items = await Promise.all((body.items || []).map(async i => ({ q: Number(i.q), prod: await one('SELECT id,precio,promo FROM productos WHERE id=? AND activo=1', Number(i.id)) })));
+    const items = await Promise.all((body.items || []).map(async i => ({ q: Number(i.q), prod: await one('SELECT id,precio FROM productos WHERE id=? AND activo=1', Number(i.id)) })));
     if (!items.length || items.some(i => !i.prod || !Number.isInteger(i.q) || i.q < 1)) throw new HttpError(422, { error: 'Tu carrito está vacío o tiene productos no válidos.' });
     // Un pedido nuevo reemplaza los pagos DeUna que el usuario dejó sin terminar (así no se retiene stock).
     for (const x of await q("SELECT pg.id,pg.pedido_id FROM pagos pg JOIN pedidos pe ON pe.id=pg.pedido_id WHERE pe.usuario_id=? AND pg.estado='pendiente' AND pg.metodo<>'fisico'", user.id))
       await cerrarPago(x.id, x.pedido_id, 'cancelado', 'Reemplazado por un pedido nuevo.');
     const c = await cfg();
-    // El subtotal ya incluye la promo 3x2 (la misma función que usa el carrito del navegador).
-    const descuento = descuento3x2(items.map(i => ({ precio: i.prod.precio, q: i.q, promo: i.prod.promo })));
+    // El subtotal ya incluye el descuento por packs (la misma función que usa el carrito del navegador).
+    const descuento = descuentoPacks(items.map(i => ({ id: i.prod.id, precio: i.prod.precio, q: i.q })), (await packsActivos()).map(k => ({ id: k.id, nombre: k.nombre, pct: k.pct, ids: k.items }))).total;
     const subtotal = Math.round((items.reduce((a, i) => a + i.prod.precio * i.q, 0) - descuento) * 100) / 100;
     const envio = dm === 'pick' || subtotal >= c.envio_gratis_desde ? 0 : c.envio_costo;
     const totalPed = Math.round((subtotal + envio) * 100) / 100;
@@ -528,7 +535,7 @@ async function sincronizarImagenes() {
 }
 
 /* ---- Actualiza el catálogo de una base ya creada (Turso) sin borrar usuarios, pedidos ni comentarios ----
-   Renombra los títulos reemplazados, agrega los nuevos, marca las ofertas 3x2 y fija el envío gratis. */
+   Renombra los títulos reemplazados, agrega los nuevos, aplica las rebajas y los packs y fija el envío gratis. */
 /* ---- Verificación del inicio con Google ----
    El token de Google viene firmado (JWT RS256). Se comprueba aquí con las claves públicas de Google,
    que se descargan una vez y se guardan en memoria; así el inicio de sesión no espera otra consulta a Google. */
@@ -553,9 +560,10 @@ async function verificarTokenGoogle(cred) {
 
 async function actualizarCatalogo() {
   const cols = async t => (await q(`PRAGMA table_info(${t})`)).map(c => c.name);
-  if (!(await cols('productos')).includes('promo')) await run("ALTER TABLE productos ADD COLUMN promo TEXT CHECK (promo IS NULL OR promo = '3x2')");
   if (!(await cols('pedidos')).includes('descuento')) await run('ALTER TABLE pedidos ADD COLUMN descuento REAL NOT NULL DEFAULT 0 CHECK (descuento >= 0)');
-  const { filasSemilla, RENOMBRES, PROMO_3X2, REBAJAS, ENVIO_GRATIS } = require('./seed');
+  const { filasSemilla, RENOMBRES, PACKS, REBAJAS, ENVIO_GRATIS } = require('./seed');
+  await run('CREATE TABLE IF NOT EXISTS packs (id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE CHECK (length(trim(nombre)) BETWEEN 3 AND 80), descuento_pct INTEGER NOT NULL CHECK (descuento_pct BETWEEN 1 AND 60), activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)))');
+  await run('CREATE TABLE IF NOT EXISTS pack_items (pack_id INTEGER NOT NULL REFERENCES packs(id) ON DELETE CASCADE, producto_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE, PRIMARY KEY (pack_id, producto_id))');
   if (!(await cols('productos')).includes('precio_antes')) await run('ALTER TABLE productos ADD COLUMN precio_antes REAL CHECK (precio_antes IS NULL OR precio_antes > precio)');
   await run("UPDATE configuracion SET valor=? WHERE clave='envio_gratis_desde'", ENVIO_GRATIS);
   const filas = Object.fromEntries(filasSemilla().map(f => [f[0], f]));
@@ -576,15 +584,22 @@ async function actualizarCatalogo() {
                VALUES ((SELECT id FROM categorias WHERE codigo=?),?,?,?,?,?,?,?,?,?,0,?)`, f[3], f[0], f[1], f[2], f[4], f[5], f[6], f[7], f[8], f[9], f[10]);
     cambios++;
   }
-  // Ofertas (3x2 en figuras y rebajas): se aplican una sola vez; después se editan desde la administración
-  if (!(await one("SELECT 1 AS x FROM configuracion WHERE clave='catalogo_ofertas'"))) {
+  // Ofertas (rebajas y packs): se aplican una sola vez por versión; después se editan desde la administración
+  const ver = await one("SELECT valor FROM configuracion WHERE clave='catalogo_ofertas'");
+  if (!ver || Number(ver.valor) < 2) {
     await tx(async t => {
-      await t.run('UPDATE productos SET promo=NULL');
-      for (const n of PROMO_3X2) await t.run("UPDATE productos SET promo='3x2' WHERE nombre=?", n);
+      await t.run('UPDATE productos SET precio=precio_antes, precio_antes=NULL WHERE precio_antes IS NOT NULL'); // quita las rebajas anteriores
+      if ((await cols('productos')).includes('promo')) await t.run('UPDATE productos SET promo=NULL'); // el 3x2 ya no existe
       for (const [n, pct] of Object.entries(REBAJAS)) await t.run('UPDATE productos SET precio_antes=precio, precio=ROUND(precio*?,2) WHERE nombre=? AND precio_antes IS NULL', 1 - pct / 100, n);
-      await t.run("INSERT INTO configuracion(clave,valor,detalle) VALUES ('catalogo_ofertas',1,'Versión de las ofertas aplicadas al catálogo (uso interno)')");
+      await t.run('DELETE FROM pack_items');
+      await t.run('DELETE FROM packs');
+      for (const [i, [n, pct, prods]] of PACKS.entries()) {
+        await t.run('INSERT INTO packs(id,nombre,descuento_pct) VALUES (?,?,?)', i + 1, n, pct);
+        for (const pn of prods) await t.run('INSERT INTO pack_items(pack_id,producto_id) VALUES (?,(SELECT id FROM productos WHERE nombre=?))', i + 1, pn);
+      }
+      await t.run("INSERT OR REPLACE INTO configuracion(clave,valor,detalle) VALUES ('catalogo_ofertas',2,'Versión de las ofertas aplicadas al catálogo (uso interno)')");
     });
-    console.log('Ofertas del catálogo aplicadas (3x2 en figuras y rebajas).');
+    console.log('Ofertas del catálogo aplicadas (rebajas y packs).');
   }
   if (cambios) console.log(`Catálogo actualizado: ${cambios} producto(s).`);
 }
@@ -593,7 +608,7 @@ async function actualizarCatalogo() {
 // Aplicación de administración (CRUD de productos, stock y pedidos): /admin/
 const ADMIN = require('./admin')({ q, one, run, tx, HttpError, dbError, limitar, enviarComprobante });
 Object.assign(rutas, ADMIN.rutas);
-const PAGINAS_HTML = ['index', 'catalogo', 'producto', 'favoritos', 'pedidos', 'pagar', 'ingresar', 'perfil', 'ayuda'];
+const PAGINAS_HTML = ['index', 'ofertas', 'catalogo', 'producto', 'favoritos', 'pedidos', 'pagar', 'ingresar', 'perfil', 'ayuda'];
 const ESTATICOS = { '/': 'index.html', '/css/estilos.css': 'css/estilos.css', '/admin': 'admin/index.html', '/admin/': 'admin/index.html', '/admin/admin.js': 'admin/admin.js', ...Object.fromEntries(PAGINAS_HTML.map(p => ['/' + p + '.html', p + '.html'])) };
 const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 

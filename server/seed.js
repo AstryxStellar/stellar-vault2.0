@@ -58,12 +58,29 @@ const RENOMBRES = [
   ['Date a Live Vol. 17', 'Magical Detective Kurumi Tokisaki Vol. 3'], ['Otonari no Tenshi-sama Vol. 6', 'Black Bullet Vol. 7'], ['Toradora! Vol. 2', 'Rakudai Kishi no Cavalry Vol. 19'],
   ['The Apothecary Diaries Vol. 4', 'Yahari Ore no Seishun Rabukome wa Machigatte Iru Vol. 17'], ['Is It Wrong to Try to Pick Up Girls in a Dungeon? Vol. 17', 'Shibou End o Kaihi Shita Gyaruge no Heroine Vol. 2'],
 ];
-// Mangas con la promo 3x2 (por cada 3 unidades con promo, la más barata es gratis)
-const PROMO_3X2 = ['Anya Forger 1/7 Spy × Family', 'Yor Forger 1/7 Spy × Family', 'Marin Kitagawa 1/7 My Dress-Up Darling', 'Kurumi Tokisaki 1/7 Date A Live', 'Power 1/7 Chainsaw Man', 'Nezuko Kamado 1/8 Demon Slayer'];
-// Rebajas (% de descuento) en algunos productos de cada categoría: el precio guardado es el rebajado y precio_antes el original
-const REBAJAS = { 'Chainsaw Man Vol. 15': 20, 'Grand Blue Dreaming Vol. 3': 15, 'Ranma 1/2 Vol. 23': 25, 'Blue Lock Vol. 12': 10,
-  'Re:Zero Vol. 10': 20, 'Overlord Vol. 12': 15, 'KonoSuba Vol. 4': 25, 'Mushoku Tensei Vol. 7': 10,
-  'Megumin KonoSuba': 15, 'Asuna 1/7 Sword Art Online': 12, 'Hatsune Miku 1/7': 10, 'Satono Diamond Uma Musume': 15 };
+// Packs: [nombre, % de descuento, productos]. Cada pack junta figuras y libros de una misma serie (ningún producto está en dos packs).
+const PACKS = [
+  ['Pack Spy × Family', 15, ['Anya Forger 1/7 Spy × Family', 'Yor Forger 1/7 Spy × Family', 'Spy × Family Vol. 8']],
+  ['Pack Yor Princesa Espina', 12, ['Yor Forger Thorn Princess 1/7', 'Spy × Family Vol. 9']],
+  ['Pack Chainsaw Man', 15, ['Power 1/7 Chainsaw Man', 'Makima 1/7 Chainsaw Man', 'Chainsaw Man Vol. 15']],
+  ['Pack Frieren', 15, ['Frieren 1/7 Sousou no Frieren', 'Frieren Vol. 6', 'Frieren Vol. 7']],
+  ['Pack Oshi no Ko', 15, ['Hoshino Ai 1/7 Oshi no Ko', 'Oshi no Ko Vol. 9', 'Oshi no Ko Vol. 11']],
+  ['Pack Go Toubun no Hanayome', 15, ['Nakano Miku 1/7 The Quintessential Quintuplets', 'Go Toubun no Hanayome Vol. 3', 'Go Toubun no Hanayome Vol. 8']],
+  ['Pack Jujutsu Kaisen', 12, ['Satoru Gojo 1/8 Jujutsu Kaisen', 'Jujutsu Kaisen Vol. 20']],
+  ['Pack KonoSuba Megumin', 12, ['Megumin KonoSuba', 'KonoSuba Vol. 4']],
+  ['Pack KonoSuba Aqua', 12, ['Aqua 1/7 KonoSuba', 'KonoSuba Vol. 5']],
+  ['Pack Re:Zero Rem', 12, ['Rem 1/7 Re:Zero', 'Re:Zero Vol. 10']],
+  ['Pack Re:Zero Emilia', 12, ['Emilia 1/7 Re:Zero', 'Re:Zero Vol. 11']],
+  ['Pack Uma Musume', 12, ['Satono Diamond Uma Musume', 'Uma Musume: Cinderella Gray Vol. 21']],
+  ['Pack Sword Art Online', 12, ['Asuna 1/7 Sword Art Online', 'Sword Art Online Vol. 3']],
+  ['Pack Date A Live', 12, ['Kurumi Tokisaki 1/7 Date A Live', 'Magical Detective Kurumi Tokisaki Vol. 3']],
+  ['Pack Dandadan', 12, ['Dan Da Dan Set de figuras', 'Dandadan Vol. 7']],
+  ['Pack Hatsune Miku', 12, ['Hatsune Miku 1/7', 'Hatsune Miku Symphony 1/7']],
+];
+// Rebajas (% de descuento) en 16 productos de las tres categorías (ninguno está en un pack): el precio guardado es el rebajado y precio_antes el original
+const REBAJAS = { 'Grand Blue Dreaming Vol. 3': 15, 'Ranma 1/2 Vol. 23': 25, 'Blue Lock Vol. 12': 10, 'Tonikaku Kawaii Vol. 4': 20, 'Yofukashi no Uta Vol. 6': 15, 'One Punch Man Vol. 2': 10,
+  'Overlord Vol. 12': 15, 'Mushoku Tensei Vol. 7': 10, 'No Game No Life Vol. 6': 20, 'Spice and Wolf Vol. 8': 25, 'Tensei shitara Slime Datta Ken Vol. 18': 15,
+  'Ikuyo Kita 1/7 Bocchi the Rock!': 10, 'Nezuko Kamado 1/8 Demon Slayer': 12, 'Marin Kitagawa 1/7 My Dress-Up Darling': 15, 'Shingeki no Kyojin': 20, 'Misono Mika 1/7 Shizuku-tan': 10 };
 const ENVIO_GRATIS = 80; // compra mínima (USD) para envío gratis
 // Figuras en stock: [nombre, fabricante, licencia, precio, stock]
 [['Kurumi Tokisaki 1/7 Date A Live', 'Alter', 'Date A Live Licensed', 149, 5], ['Marin Kitagawa 1/7 My Dress-Up Darling', 'Kotobukiya', 'Aniplex Licensed', 135, 8],
@@ -129,7 +146,7 @@ async function seed(db, hashPassword) {
     ['envio_gratis_desde', ENVIO_GRATIS, 'Compra mínima para envío gratis (USD)'],
     ['max_cantidad_stock', 10, 'Máximo de unidades por compra en productos en stock'],
     ['max_cantidad_preventa', 5, 'Máximo de unidades por compra en preventas'],
-    ['catalogo_ofertas', 1, 'Versión de las ofertas aplicadas al catálogo (uso interno)'],
+    ['catalogo_ofertas', 2, 'Versión de las ofertas aplicadas al catálogo (uso interno)'],
   ]) ins('INSERT INTO configuracion(clave,valor,detalle) VALUES (?,?,?)', k, v, d);
 
   // Categorías
@@ -195,8 +212,11 @@ async function seed(db, hashPassword) {
   COMENTARIOS.forEach(([pid, , r, t], i) => ins('INSERT INTO comentarios(producto_id,usuario_id,autor,calificacion,texto,fecha) VALUES (?,?,?,?,?,?)',
     pid, i + 1, USUARIOS[i], r, t, new Date(Date.UTC(2026, 8, 5 + i, 12, 0)).toISOString()));
 
-  // Ofertas: 3x2 en figuras elegidas y rebajas (al final, para que los pedidos de ejemplo conserven el precio de lista)
-  PROMO_3X2.forEach(n => ins("UPDATE productos SET promo='3x2' WHERE nombre=?", n));
+  // Packs y rebajas (al final, para que los pedidos de ejemplo conserven el precio de lista)
+  PACKS.forEach(([n, pct, prods], i) => {
+    ins('INSERT INTO packs(id,nombre,descuento_pct) VALUES (?,?,?)', i + 1, n, pct);
+    prods.forEach(pn => ins('INSERT INTO pack_items(pack_id,producto_id) VALUES (?,(SELECT id FROM productos WHERE nombre=?))', i + 1, pn));
+  });
   Object.entries(REBAJAS).forEach(([n, pct]) => ins('UPDATE productos SET precio_antes=precio, precio=ROUND(precio*?,2) WHERE nombre=?', 1 - pct / 100, n));
 
   // Favoritos de ejemplo (usuario, producto)
@@ -212,4 +232,4 @@ const productosSemilla = () => [
 ];
 
 const filasSemilla = () => [...NUEVOS, ...EXTRA];
-module.exports = { seed, productosSemilla, filasSemilla, RENOMBRES, PROMO_3X2, REBAJAS, ENVIO_GRATIS };
+module.exports = { seed, productosSemilla, filasSemilla, RENOMBRES, PACKS, REBAJAS, ENVIO_GRATIS };

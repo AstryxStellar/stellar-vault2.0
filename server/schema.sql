@@ -31,11 +31,23 @@ CREATE TABLE productos (
   tinte_texto  TEXT NOT NULL CHECK (tinte_texto GLOB '#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]'),
   preventa     TEXT CHECK (preventa IS NULL OR length(trim(preventa)) >= 3),
   destacado    INTEGER NOT NULL DEFAULT 0 CHECK (destacado IN (0,1)),
-  promo        TEXT CHECK (promo IS NULL OR promo = '3x2'), -- oferta 3x2 en figuras elegidas
   precio_antes REAL CHECK (precio_antes IS NULL OR precio_antes > precio), -- rebaja: precio anterior (precio ya es el rebajado)
   descripcion  TEXT NOT NULL CHECK (length(trim(descripcion)) >= 10)
 );
 CREATE INDEX idx_productos_categoria ON productos(categoria_id);
+
+-- Packs: productos de una misma serie que se compran juntos con un % de descuento
+CREATE TABLE packs (
+  id            INTEGER PRIMARY KEY,
+  nombre        TEXT NOT NULL UNIQUE CHECK (length(trim(nombre)) BETWEEN 3 AND 80),
+  descuento_pct INTEGER NOT NULL CHECK (descuento_pct BETWEEN 1 AND 60),
+  activo        INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1))
+);
+CREATE TABLE pack_items (
+  pack_id     INTEGER NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
+  producto_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
+  PRIMARY KEY (pack_id, producto_id)
+);
 
 CREATE TABLE imagenes_producto (
   id          INTEGER PRIMARY KEY,
@@ -110,8 +122,8 @@ CREATE TABLE pedidos (
   piso          TEXT,
   unidad        TEXT,
   referencia    TEXT,
-  subtotal      REAL NOT NULL CHECK (subtotal > 0), -- ya con la promo 3x2 descontada
-  descuento     REAL NOT NULL DEFAULT 0 CHECK (descuento >= 0),
+  subtotal      REAL NOT NULL CHECK (subtotal > 0), -- ya con el descuento por packs aplicado
+  descuento     REAL NOT NULL DEFAULT 0 CHECK (descuento >= 0), -- ahorro por packs
   envio         REAL NOT NULL CHECK (envio >= 0),
   total         REAL NOT NULL CHECK (total > 0),
   pagado        INTEGER NOT NULL DEFAULT 0 CHECK (pagado IN (0,1)),
