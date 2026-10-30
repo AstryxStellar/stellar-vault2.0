@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administración – STELLAR VAULT</title>
+<meta name="robots" content="noindex">
+<script>try{var t=localStorage.getItem("sv_tema");if(!t&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/estilos.css">
+<style>
+.adm{max-width:1200px;margin:0 auto;padding:24px 16px 60px}
+.atop{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:14px 16px;background:var(--card);border-bottom:1px solid var(--line)}
+.atop h1{font-size:20px;margin:0}.atop h1 b{color:var(--acc)}.atop .sp{flex:1}
+.tabs{display:flex;gap:4px;flex-wrap:wrap}.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;font-weight:700;color:var(--ink)}.tabs button[aria-selected=true]{color:var(--acc);border-bottom-color:var(--acc)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:0 0 20px}.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}.kpi b{display:block;font-size:26px}.kpi span{color:var(--mute);font-size:13px}
+.tools{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px}.tools input,.tools select{height:40px;border:1px solid var(--bd);border-radius:8px;padding:0 10px;background:var(--card);color:var(--ink);font:inherit}
+.twrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+table.at{border-collapse:collapse;width:100%;min-width:760px;font-size:13px}.at th,.at td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}.at th{background:var(--soft);color:var(--mute);font-weight:700;position:sticky;top:0}
+.at td.n{text-align:right;font-variant-numeric:tabular-nums}.at tr.off td{opacity:.55}
+.pill{display:inline-block;border-radius:20px;padding:2px 9px;font-size:11px;font-weight:800;white-space:nowrap}.ok{background:#dcfce7;color:#166534}.wa{background:#fef3c7;color:#92400e}.bad{background:#fee2e2;color:#991b1b}.mu{background:var(--soft);color:var(--mute)}
+.sb{height:32px;padding:0 10px;border-radius:6px;border:1px solid var(--bd);background:var(--card);color:var(--ink);font-weight:600;font-size:12px;margin:2px}.sb:hover{border-color:var(--acc);color:var(--acc)}.sb.r{color:#b91c1c}
+dialog{margin:auto;max-height:92vh;overflow:auto;border:0;border-radius:14px;padding:0;max-width:min(640px,94vw);width:100%;background:var(--card);color:var(--ink);box-shadow:0 20px 60px rgba(0,0,0,.35)}dialog::backdrop{background:rgba(20,10,25,.55)}
+.dh2{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}.dh2 h2{margin:0;font-size:18px}.db{padding:16px 20px}.df{display:flex;gap:10px;justify-content:flex-end;padding:0 20px 18px;flex-wrap:wrap}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}@media(max-width:560px){.g2{grid-template-columns:1fr}}
+.f textarea{width:100%;min-height:80px;border:1px solid var(--bd);border-radius:8px;padding:10px;font:inherit;background:var(--card);color:var(--ink)}
+.orden{font-size:13px}.orden table{width:100%;border-collapse:collapse}.orden td,.orden th{padding:6px 0;border-bottom:1px solid var(--line);text-align:left}.orden .n{text-align:right}
+.msg{min-height:20px;font-weight:600;font-size:13px;margin:8px 0}.msg.e{color:#b91c1c}.msg.s{color:var(--green)}
+@media print{.atop,.tabs,.df,.noprint{display:none!important}dialog{position:static;box-shadow:none;max-width:none}body *{visibility:hidden}#dlg,#dlg *{visibility:visible}#dlg{position:absolute;left:0;top:0}}
+</style>
+</head><body>
+<a class="skip" href="#adm">Saltar al contenido</a>
+<header class="atop">
+ <h1>STELLAR <b>VAULT</b> · Administración</h1>
+ <nav class="tabs" id="tabs" role="tablist" aria-label="Secciones" hidden>
+  <button role="tab" id="t-res" aria-controls="adm" aria-selected="true" onclick="tab('res')">Resumen</button>
+  <button role="tab" id="t-prod" aria-controls="adm" aria-selected="false" onclick="tab('prod')">Productos y stock</button>
+  <button role="tab" id="t-ped" aria-controls="adm" aria-selected="false" onclick="tab('ped')">Pedidos</button>
+ </nav>
+ <span class="sp"></span>
+ <a class="alink" href="/">Ir a la tienda</a>
+ <button class="sb" id="salir" onclick="salir()" hidden>Cerrar sesión</button>
+</header>
+<main class="adm" id="adm" tabindex="-1" role="tabpanel"><div class="panel empty">Cargando…</div></main>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg" aria-labelledby="dlgT"></dialog>
+<script src="/admin/admin.js"></script>
+</body></html>
