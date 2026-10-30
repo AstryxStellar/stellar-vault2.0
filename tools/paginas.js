@@ -7,6 +7,7 @@ const ROOT = path.join(__dirname, '..');
 // [archivo, vista, título, descripción]
 const PAGINAS = [
   ['index.html', 'home', 'Inicio', 'Tienda de mangas, novelas ligeras y figuras coleccionables en Ecuador.'],
+  ['ofertas.html', 'ofer', 'Ofertas', 'Packs de una misma serie y rebajas en productos elegidos.'],
   ['catalogo.html', 'cat', 'Catálogo', 'Catálogo de mangas, novelas ligeras y figuras con filtros por categoría y disponibilidad.'],
   ['producto.html', 'prod', 'Producto', 'Detalle del producto: fotos, precio, disponibilidad y comentarios.'],
   ['favoritos.html', 'fav', 'Favoritos', 'Tus productos guardados como favoritos.'],
@@ -17,7 +18,7 @@ const PAGINAS = [
   ['ayuda.html', 'help', 'Ayuda', 'Preguntas frecuentes sobre compras, envíos, pagos y preventas.'],
 ];
 
-const NAV = [['index.html', 'home', 'Inicio'], ['catalogo.html', 'cat', 'Catálogo'], ['favoritos.html', 'fav', 'Favoritos'], ['pedidos.html', 'acct', 'Mis pedidos'], ['ayuda.html', 'help', 'Ayuda']];
+const NAV = [['index.html', 'home', 'Inicio'], ['catalogo.html', 'cat', 'Catálogo'], ['ofertas.html', 'ofer', 'Ofertas'], ['favoritos.html', 'fav', 'Favoritos'], ['pedidos.html', 'acct', 'Mis pedidos'], ['ayuda.html', 'help', 'Ayuda']];
 
 const pagina = ([archivo, vista, titulo, desc]) => `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
@@ -43,7 +44,7 @@ const pagina = ([archivo, vista, titulo, desc]) => `<!DOCTYPE html>
  <div class="fgrid">
   <section aria-labelledby="f1"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><img id="flogo" alt="" width="44" height="44"><h2 id="f1" style="margin:0">Tienda</h2></div>
    <p>STELLAR VAULT es tu tienda geek de mangas, novelas ligeras y figuras coleccionables. Trabajamos para que encuentres tus series favoritas. Hacemos envíos por Servientrega a todo el Ecuador o puedes retirar tu pedido en tienda.</p></section>
-  <nav aria-labelledby="f2"><h2 id="f2">STELLAR VAULT</h2><ul><li><a class="flink" href="index.html">Inicio</a></li><li><a class="flink" href="catalogo.html">Catálogo</a></li><li><a class="flink" href="ayuda.html">Ayuda</a></li><li><a class="flink" href="catalogo.html?disp=pre">Preventas oficiales</a></li><li><a class="flink" href="catalogo.html?cat=f">Figuras coleccionables</a></li></ul></nav>
+  <nav aria-labelledby="f2"><h2 id="f2">STELLAR VAULT</h2><ul><li><a class="flink" href="index.html">Inicio</a></li><li><a class="flink" href="catalogo.html">Catálogo</a></li><li><a class="flink" href="ofertas.html">Ofertas</a></li><li><a class="flink" href="ayuda.html">Ayuda</a></li><li><a class="flink" href="catalogo.html?disp=pre">Preventas oficiales</a></li><li><a class="flink" href="catalogo.html?cat=f">Figuras coleccionables</a></li></ul></nav>
   <section aria-labelledby="f3"><h2 id="f3">Contacto</h2>
    <dl class="ct"><dt>Email</dt><dd><a class="flink" href="mailto:santiagoquiguango@hotmail.com">santiagoquiguango@hotmail.com</a></dd><dt>Teléfono</dt><dd><a class="flink" href="tel:+59396368732">096368732</a></dd><dt>Dirección</dt><dd>Quito, Ecuador</dd></dl></section>
  </div>
