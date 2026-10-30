@@ -50,11 +50,12 @@ Monitor gratis en https://uptimerobot.com a `https://TU-LINK/api/health` cada 5 
 index.html            Inicio            catalogo.html   Catálogo          producto.html  Detalle (?id=)
 favoritos.html        Favoritos         pedidos.html    Mis pedidos       pagar.html     Pago y confirmación
 ingresar.html         Iniciar sesión    perfil.html     Mi perfil         ayuda.html     Ayuda
+ofertas.html          Ofertas (packs y rebajas)
 css/estilos.css       guía de estilo (colores, tipografía, componentes, modo oscuro)
-js/                   model.js · view.js · controller.js (MVC) y rules.js (validaciones y promo 3x2)
+js/                   model.js · view.js · controller.js (MVC) y rules.js (validaciones y descuento por packs)
 server/               server.js (API), db.js, schema.sql, seed.js (datos), mail.js (correos)
 img/                  fotos: <producto>-frente.jpg (portadas y figuras) y <producto>-atras.jpg (figuras)
-tools/                paginas.js (genera las 9 páginas HTML con el mismo encabezado y pie) · portadas.js (descarga portadas) · generar-imagenes.js y prompts-figuras.md (figuras)
+tools/                paginas.js (genera las 10 páginas HTML con el mismo encabezado y pie) · portadas.js (descarga portadas) · generar-imagenes.js y prompts-figuras.md (figuras)
 ```
 
 ### Administración (otra aplicación): `TU-LINK/admin/`
@@ -83,8 +84,14 @@ El plan gratis da 750 horas al mes: alcanza para tener un servicio encendido tod
 
 ### Ofertas y envío
 - Envío gratis desde **$80** (tabla `configuracion`).
-- **Promo 3x2** en algunos mangas (columna `productos.promo`, lista `PROMO_3X2` en `server/seed.js`):
-  por cada 3 unidades con promo en el carrito, la más barata es gratis.
+- **Packs** (tablas `packs` y `pack_items`, lista `PACKS` en `server/seed.js`): 16 packs de una misma serie (figuras + libros, 37 productos en total)
+  con un 12 % o 15 % de descuento. Si el carrito tiene todos los productos de un pack, el descuento se aplica solo
+  (función `descuentoPacks` de `js/rules.js`, la usan el carrito y el servidor) y queda guardado en `pedidos.descuento`.
+- **Rebajas** en 16 productos de las tres categorías (columna `productos.precio_antes`, lista `REBAJAS`):
+  `precio` ya es el precio rebajado y `precio_antes` el original (se muestra tachado con el % de descuento).
+  Los packs y las rebajas se editan desde la administración (pestaña «Packs» y campo «Precio anterior»).
+- Página **Ofertas** (`ofertas.html`) con los dos tipos; el inicio muestra **En rebaja**, **Packs** y **Los más comprados**
+  (suma de unidades en pedidos no cancelados). El catálogo tiene los filtros «En pack» y «Rebajas».
 - Al arrancar, el servidor actualiza solo el catálogo de una base ya creada (Turso): renombra los títulos
   cambiados, agrega los nuevos, marca las ofertas y fija el envío gratis, **sin borrar** usuarios, pedidos ni comentarios.
 
