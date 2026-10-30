@@ -77,6 +77,14 @@ Se entra con la clave de la variable `ADMIN_CLAVE` (en Render → Environment; e
 | `pagos` | método (efectivo, DeUna botón o QR), estado del cobro y motivo (rechazo, cambio, devolución) |
 | `movimientos_stock` | entradas y salidas de inventario hechas desde la administración |
 
+### Seguridad y pruebas
+- Las claves se guardan con scrypt; las sesiones son tokens aleatorios; todo texto del usuario se muestra escapado (sin XSS).
+- Límite de intentos por IP, por correo (10 fallos en 5 minutos) y global para la clave de administrador.
+- La base de datos rechaza datos inválidos (CHECK, UNIQUE, claves foráneas y triggers) aunque se salte el navegador.
+- El catálogo público se calcula una vez cada 5 segundos aunque haya muchas visitas a la vez.
+- `tools/pruebas-ataque.js` lanza 161 pruebas contra una copia local con base temporal (peticiones mal formadas, accesos sin sesión,
+  inyección SQL/XSS, pedidos manipulados, compras simultáneas del último stock, administración, carga). Resultado actual: 161 de 161.
+
 ### Página siempre activa
 En Render, el servidor se visita solo cada 10 minutos (usa `RENDER_EXTERNAL_URL`, que Render pone automáticamente),
 así el plan gratis no lo apaga. Como respaldo, configura UptimeRobot a `https://TU-LINK/api/health` cada 5 minutos.
