@@ -12,7 +12,7 @@ const PORT = Number(process.env.PORT) || 3000;
 
 let db, D; // se abren al arrancar (la conexión a la base es asíncrona)
 const rows = r => r.rows.map(row => Object.fromEntries(r.columns.map((c, i) => [c, row[i]])));
-const limpio = a => a.map(x => (x === undefined ? null : x));
+const limpio = a => a.map(x => (x === undefined || (typeof x === 'number' && !Number.isFinite(x)) || (typeof x === 'object' && x !== null && !Buffer.isBuffer(x)) ? null : x));
 const mk = conn => {
   const o = {
     q: async (sql, ...a) => rows(await conn.execute({ sql, args: limpio(a) })),
@@ -55,12 +55,25 @@ process.on('unhandledRejection', e => console.error('Promesa rechazada:', e));
 const golpes = new Map();
 function limitar(req, clave, max, ventanaMs) {
   const ip = (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress;
-  const k = clave + '|' + ip, ahora = Date.now();
+  const k = clave + '|' + String(ip).slice(0, 60), ahora = Date.now();
+  if (golpes.size > 50000) golpes.clear(); // tope de memoria ante un ataque con miles de IP falsas
   let h = golpes.get(k);
   if (!h || h.t < ahora) { h = { n: 0, t: ahora + ventanaMs }; golpes.set(k, h); }
   if (++h.n > max) throw new HttpError(429, { error: 'Demasiados intentos. Espera un momento e inténtalo de nuevo.' });
 }
-setInterval(() => { const n = Date.now(); for (const [k, h] of golpes) if (h.t < n) golpes.delete(k); }, 60000).unref();
+setInterval(() => { const n = Date.now(); for (const [k, h] of golpes) if (h.t < n) golpes.delete(k); for (const [k, h] of fallosCorreo) if (h.t < n) fallosCorreo.delete(k); }, 60000).unref();
+// Fallos de inicio de sesión por correo: 10 en 5 minutos bloquean ese correo un rato, venga de la IP que venga.
+const fallosCorreo = new Map();
+function revisarFallos(clave) {
+  const h = fallosCorreo.get(clave);
+  if (h && h.t > Date.now() && h.n >= 10) throw new HttpError(429, { error: 'Demasiados intentos fallidos con este correo. Espera unos minutos e inténtalo de nuevo.' });
+}
+function anotarFallo(clave) {
+  const ahora = Date.now(); let h = fallosCorreo.get(clave);
+  if (fallosCorreo.size > 50000) fallosCorreo.clear();
+  if (!h || h.t < ahora) { h = { n: 0, t: ahora + 300000 }; fallosCorreo.set(clave, h); }
+  h.n++;
+}
 const LIMITES = { 'POST /api/login': [10, 60000], 'POST /api/registro': [5, 600000], 'POST /api/reenviar': [5, 600000], 'POST /api/google': [20, 60000], 'PUT /api/perfil': [30, 60000], 'POST /api/pagos/:token/confirmar': [30, 60000], 'POST /api/pagos/:token/rechazar': [30, 60000], 'POST /api/perfil/password': [10, 60000], 'POST /api/pedidos': [20, 60000], 'POST /api/comentarios': [20, 60000], 'POST /api/favoritos': [60, 60000] };
 const exigirSesion = (user, msg = 'Inicia sesión para continuar.') => { if (!user) throw new HttpError(401, { error: msg, requiereLogin: true }); return user; };
 
@@ -125,6 +138,22 @@ async function packsActivos() {
   const m = new Map();
   for (const r of filas) { const k = m.get(r.id) || { id: r.id, nombre: r.nombre, pct: r.pct, items: [], ok: true }; k.items.push(r.pid); if (!r.activo) k.ok = false; m.set(r.id, k); }
   return [...m.values()].filter(k => k.ok).map(({ ok, ...k }) => k);
+}
+// Catálogo, packs, comentarios y reglas: iguales para todos los visitantes, así que se calculan una sola vez cada 5 segundos
+// (muchas visitas simultáneas comparten el mismo resultado en vez de repetir ~10 consultas a la base cada una).
+// Cualquier cambio (pedido, comentario, administración) borra esta copia y la siguiente visita la recalcula.
+let bootPublico = null;
+function datosPublicos() {
+  if (bootPublico && Date.now() - bootPublico.t < 5000) return bootPublico.p;
+  const p = (async () => {
+    const prov = {};
+    (await q('SELECT p.nombre prov,c.nombre ciudad FROM ciudades c JOIN provincias p ON p.id=c.provincia_id ORDER BY p.nombre,c.id')).forEach(r => (prov[r.prov] ||= []).push(r.ciudad));
+    const [config, categorias, prods, reg, coms, packs] = await Promise.all([cfg(), q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos(), reglas(), comentarios(), packsActivos()]);
+    return { config, categorias, productos: prods, provincias: prov, reglas: reg, comentarios: coms, google: process.env.GOOGLE_CLIENT_ID || null, packs };
+  })();
+  const entrada = bootPublico = { t: Date.now(), p };
+  p.catch(() => { if (bootPublico === entrada) bootPublico = null; });
+  return p;
 }
 async function productos() {
   const imgs = {};
@@ -283,13 +312,10 @@ document.getElementById('cancelar').onclick=e=>{e.preventDefault();accion('recha
 
 const rutas = {
   'GET /api/health': async () => ({ ok: true, productos: (await one('SELECT count(*) AS n FROM productos')).n }),
+  // Con sesión, la misma respuesta trae el usuario y sus favoritos (una sola petición al abrir cada página).
   'GET /api/bootstrap': async ({ user }) => {
-    const prov = {};
-    (await q('SELECT p.nombre prov,c.nombre ciudad FROM ciudades c JOIN provincias p ON p.id=c.provincia_id ORDER BY p.nombre,c.id')).forEach(r => (prov[r.prov] ||= []).push(r.ciudad));
-    // Con sesión, la misma respuesta trae el usuario y sus favoritos (una sola petición al abrir cada página).
-    const [config, categorias, prods, reg, coms, yo, favs, packs] = await Promise.all([cfg(), q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos(), reglas(), comentarios(),
-      user ? publico(user) : null, user ? favoritos(user.id) : [], packsActivos()]);
-    return { config, categorias, productos: prods, provincias: prov, reglas: reg, comentarios: coms, google: process.env.GOOGLE_CLIENT_ID || null, usuario: yo, favoritos: favs, packs };
+    const [pub, yo, favs] = await Promise.all([datosPublicos(), user ? publico(user) : null, user ? favoritos(user.id) : []]);
+    return { ...pub, usuario: yo, favoritos: favs };
   },
   'GET /api/comentarios': async () => ({ comentarios: await comentarios() }),
   'POST /api/comentarios': async ({ body, user }) => {
@@ -313,6 +339,7 @@ const rutas = {
     const err = validar(await reglas(), 'registro', body);
     if (Object.keys(err).length) throw new HttpError(422, { error: Object.values(err)[0], errores: err });
     const email = String(body.email).trim().toLowerCase(), nombre = String(body.nombre).trim();
+    if (nombre.length > 80 || email.length > 120) throw new HttpError(422, { error: nombre.length > 80 ? 'El nombre no puede pasar de 80 caracteres.' : 'El correo no puede pasar de 120 caracteres.' });
     let u = await one('SELECT id,nombre,email,verificado FROM usuarios WHERE email=?', email);
     if (u && u.verificado) throw new HttpError(409, { error: 'Ya existe una cuenta con ese correo. Inicia sesión.' });
     if (u) await run('UPDATE usuarios SET nombre=?,password_hash=? WHERE id=?', nombre, hashPassword(String(body.password)), u.id); // registro sin verificar: se reintenta
@@ -344,8 +371,11 @@ const rutas = {
     if (String(body.password || '').length > 128) throw new HttpError(401, { error: 'Correo o contraseña incorrectos.' });
     const err = validar(await reglas(), 'login', body);
     if (Object.keys(err).length) throw new HttpError(422, { error: Object.values(err)[0] });
+    const claveCorreo = String(body.email).trim().toLowerCase().slice(0, 120);
+    revisarFallos(claveCorreo);
     const u = await one('SELECT id,nombre,email,password_hash,verificado FROM usuarios WHERE email=?', String(body.email).trim());
-    if (!u || !checkPassword(String(body.password || ''), u.password_hash)) throw new HttpError(401, { error: 'Correo o contraseña incorrectos.' });
+    if (!u || !checkPassword(String(body.password || ''), u.password_hash)) { anotarFallo(claveCorreo); throw new HttpError(401, { error: 'Correo o contraseña incorrectos.' }); }
+    fallosCorreo.delete(claveCorreo);
     if (!u.verificado) throw new HttpError(403, { error: 'Aún no verificas tu correo. Revisa tu bandeja de entrada o pide que te reenviemos el enlace.', noVerificado: true, email: u.email, seguimiento: nuevoSeguimiento(u.id) });
     return { token: await sesion(u.id), usuario: await publico(u) };
   },
@@ -463,8 +493,12 @@ const rutas = {
     if (Object.keys(err).length) throw new HttpError(422, { errores: err });
     if (!['fisico', 'deuna'].includes(body.metodo)) throw new HttpError(422, { error: 'Método de pago no válido.' });
     if (!Array.isArray(body.items) || body.items.length > 50) throw new HttpError(422, { error: 'Tu carrito tiene demasiados productos distintos.' });
-    const items = await Promise.all((body.items || []).map(async i => ({ q: Number(i.q), prod: await one('SELECT id,precio FROM productos WHERE id=? AND activo=1', Number(i.id)) })));
-    if (!items.length || items.some(i => !i.prod || !Number.isInteger(i.q) || i.q < 1)) throw new HttpError(422, { error: 'Tu carrito está vacío o tiene productos no válidos.' });
+    const itemsBrutos = await Promise.all((body.items || []).map(async i => ({ q: Number(i && i.q), prod: await one('SELECT id,precio FROM productos WHERE id=? AND activo=1', Number.isInteger(Number(i && i.id)) ? Number(i.id) : null) })));
+    if (!itemsBrutos.length || itemsBrutos.some(i => !i.prod || !Number.isInteger(i.q) || i.q < 1)) throw new HttpError(422, { error: 'Tu carrito está vacío o tiene productos no válidos.' });
+    // Si un producto viene repetido en la lista se suman sus cantidades (la base solo admite una línea por producto).
+    const unidos = new Map();
+    for (const i of itemsBrutos) { const x = unidos.get(i.prod.id); if (x) x.q += i.q; else unidos.set(i.prod.id, { ...i }); }
+    const items = [...unidos.values()];
     // Un pedido nuevo reemplaza los pagos DeUna que el usuario dejó sin terminar (así no se retiene stock).
     for (const x of await q("SELECT pg.id,pg.pedido_id FROM pagos pg JOIN pedidos pe ON pe.id=pg.pedido_id WHERE pe.usuario_id=? AND pg.estado='pendiente' AND pg.metodo<>'fisico'", user.id))
       await cerrarPago(x.id, x.pedido_id, 'cancelado', 'Reemplazado por un pedido nuevo.');
@@ -614,8 +648,9 @@ const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
 
 function leerCuerpo(req) {
   return new Promise((ok, fail) => {
-    let s = ''; req.on('data', c => { s += c; if (s.length > 100_000) { fail(new HttpError(413, { error: 'Solicitud demasiado grande.' })); req.destroy(); } });
-    req.on('end', () => { try { ok(s ? JSON.parse(s) : {}); } catch { fail(new HttpError(400, { error: 'JSON no válido.' })); } });
+    let s = '', grande = false;
+    req.on('data', c => { if (grande) return; s += c; if (s.length > 100_000) { grande = true; req.__grande = true; fail(new HttpError(413, { error: 'Solicitud demasiado grande.' })); } });
+    req.on('end', () => { try { const v = s && !grande ? JSON.parse(s) : {}; ok(v && typeof v === 'object' && !Array.isArray(v) ? v : {}); } catch { fail(new HttpError(400, { error: 'JSON no válido.' })); } });
   });
 }
 function enviar(res, status, body, tipo = 'application/json; charset=utf-8') {
@@ -639,6 +674,7 @@ const server = http.createServer(async (req, res) => {
       if (LIMITES[claveRuta]) limitar(req, claveRuta, ...LIMITES[claveRuta]);
       const body = req.method === 'GET' || req.method === 'DELETE' ? {} : await leerCuerpo(req);
       const r = await handler({ req, body, params, query: url.searchParams, user: await usuarioDe(req) });
+      if (req.method !== 'GET' && /^\/api\/(pedidos|comentarios|pagos|admin)/.test(url.pathname)) bootPublico = null; // algo del catálogo pudo cambiar (stock, comentarios, packs): la próxima visita recalcula
       if (r && r.__html) return enviar(res, 200, r.__html, 'text/html; charset=utf-8');
       if (r && r.__redirect) { res.writeHead(302, { Location: r.__redirect }); return res.end(); }
       return enviar(res, 200, r);
@@ -663,6 +699,8 @@ const server = http.createServer(async (req, res) => {
     if (!file) return enviar(res, 404, 'No encontrado', 'text/plain; charset=utf-8');
     enviar(res, 200, fs.readFileSync(path.join(ROOT, file)), TIPOS[path.extname(file)]);
   } catch (e) {
+    if (req.method !== 'GET' && /^\/api\/(pedidos|comentarios|pagos|admin)/.test(url.pathname)) bootPublico = null;
+    if (req.__grande) { res.setHeader('Connection', 'close'); res.on('finish', () => req.destroy()); } // se responde 413 y después se corta la subida
     if (e instanceof HttpError) return enviar(res, e.status, e.body);
     console.error(e); enviar(res, 500, { error: 'Error del servidor.' });
   }

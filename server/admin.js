@@ -5,6 +5,7 @@ const crypto = require('crypto');
 
 module.exports = function admin({ q, one, run, tx, HttpError, dbError, limitar, enviarComprobante }) {
   const sesiones = new Map(); // token -> vence (las sesiones de admin duran 8 horas)
+  let fallos = []; // marcas de tiempo de claves incorrectas
   const exigir = req => {
     const t = String(req.headers['x-admin-token'] || ''), v = sesiones.get(t);
     if (!v || v < Date.now()) { sesiones.delete(t); throw new HttpError(401, { error: 'Tu sesión de administrador venció. Ingresa de nuevo.', requiereAdmin: true }); }
@@ -64,9 +65,11 @@ module.exports = function admin({ q, one, run, tx, HttpError, dbError, limitar, 
   const rutas = {
     'POST /api/admin/login': async ({ req, body }) => {
       limitar(req, 'adminlogin', 8, 600000);
+      const ahora = Date.now(); fallos = fallos.filter(t => t > ahora - 600000);
+      if (fallos.length >= 30) throw new HttpError(429, { error: 'Demasiados intentos fallidos. Espera unos minutos.' }); // límite global: no depende de la IP
       const clave = process.env.ADMIN_CLAVE;
       if (!clave) throw new HttpError(503, { error: 'Falta configurar la variable ADMIN_CLAVE en el servidor.' });
-      if (!igual(body.clave || '', clave)) throw new HttpError(401, { error: 'Clave incorrecta.' });
+      if (!igual(body.clave || '', clave)) { fallos.push(ahora); throw new HttpError(401, { error: 'Clave incorrecta.' }); }
       const token = crypto.randomBytes(32).toString('hex');
       sesiones.set(token, Date.now() + 8 * 3600e3);
       return { token };
