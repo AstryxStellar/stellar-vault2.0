@@ -31,14 +31,22 @@
     }
     return err;
   }
-  // Promo 3x2: entre todas las unidades con promo del carrito, por cada 3 la más barata sale gratis.
-  // items: [{ precio, q, promo }]
-  function descuento3x2(items) {
-    const u = [];
-    for (const i of items) if (i.promo === '3x2') for (let k = 0; k < i.q; k++) u.push(i.precio);
-    u.sort((a, b) => a - b);
-    return Math.round(u.slice(0, Math.floor(u.length / 3)).reduce((a, b) => a + b, 0) * 100) / 100;
+  // Packs: si el carrito tiene todos los productos de un pack, esas unidades llevan el descuento del pack.
+  // items: [{ id, precio, q }]   packs: [{ id, nombre, pct, ids: [id de producto] }]   -> { total, lineas: [{ id, nombre, sets, monto }] }
+  // Un producto solo cuenta para un pack a la vez (se aplican primero los de mayor descuento).
+  function descuentoPacks(items, packs) {
+    const resto = {}, precio = {};
+    for (const i of items) { resto[i.id] = (resto[i.id] || 0) + i.q; precio[i.id] = i.precio; }
+    const lineas = [];
+    for (const p of [...packs].sort((a, b) => b.pct - a.pct || a.id - b.id)) {
+      if (!p.ids.length) continue;
+      const sets = Math.min(...p.ids.map(id => resto[id] || 0));
+      if (sets <= 0) continue;
+      p.ids.forEach(id => { resto[id] -= sets; });
+      lineas.push({ id: p.id, nombre: p.nombre, sets, monto: Math.round(sets * p.ids.reduce((a, id) => a + precio[id], 0) * p.pct) / 100 });
+    }
+    return { total: Math.round(lineas.reduce((a, l) => a + l.monto, 0) * 100) / 100, lineas };
   }
-  const api = { validar, descuento3x2 };
+  const api = { validar, descuentoPacks };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Reglas = api;
 })(typeof window !== 'undefined' ? window : this);

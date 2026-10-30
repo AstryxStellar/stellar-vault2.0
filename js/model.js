@@ -6,6 +6,7 @@ const MEM={};
 const LS={get(k,d){try{const v=JSON.parse(localStorage.getItem(k));if(v!=null)return v}catch(e){}return MEM[k]!=null?JSON.parse(MEM[k]):d},set(k,v){MEM[k]=JSON.stringify(v);try{localStorage.setItem(k,MEM[k])}catch(e){}}};
 let TOKEN=LS.get("sv_token",null); // solo la sesión se recuerda en el navegador
 let GOOGLE_ID=null,P=[],CAT={},CATP={},D=[],CITY={},PROV=[],RULES=[],CONFIG={envio_costo:0,envio_gratis_desde:0,max_cantidad_stock:10,max_cantidad_preventa:5},CM={};
+let PACKS=[]; // packs vigentes: { id, name, pct, ids: [índices de P] }
 const CATS=()=>Object.entries(CATP);
 const FREE=()=>"$"+CONFIG.envio_gratis_desde,SHIPC=()=>"$"+Number(CONFIG.envio_costo).toFixed(2);
 const msgFor=(ambito,campo)=>(RULES.find(r=>r.ambito===ambito&&r.campo===campo)||{}).mensaje||"";
@@ -23,8 +24,9 @@ function applyComments(list){const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]
 function applyData(d){
  GOOGLE_ID=d.google||null;CONFIG=d.config;RULES=d.reglas;CITY=d.provincias;PROV=Object.keys(CITY);
  CAT={};CATP={};d.categorias.forEach(c=>{CAT[c.codigo]=c.nombre;CATP[c.codigo]=c.plural});
- P=d.productos.map((p,i)=>({id:i,dbId:p.id,name:p.name,by:p.by,pub:p.pub,cat:p.cat,price:p.price,stock:p.stock,c:p.c,tint:p.tint,tc:p.tc,pre:p.pre||undefined,dest:!!p.dest,promo:p.promo||undefined,was:p.was||undefined,sold:p.sold||0,imgs:p.imgs}));
+ P=d.productos.map((p,i)=>({id:i,dbId:p.id,name:p.name,by:p.by,pub:p.pub,cat:p.cat,price:p.price,stock:p.stock,c:p.c,tint:p.tint,tc:p.tc,pre:p.pre||undefined,dest:!!p.dest,was:p.was||undefined,sold:p.sold||0,imgs:p.imgs}));
  D=d.productos.map(p=>p.desc);
+ {const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));PACKS=(d.packs||[]).map(k=>({id:k.id,name:k.nombre,pct:k.pct,ids:k.items.map(x=>idx[x])})).filter(k=>k.ids.length&&k.ids.every(i=>i!=null))}
  applyComments(d.comentarios)}
 // Una sola petición trae el catálogo y, si hay sesión, el usuario y sus favoritos.
 // Se guarda una copia en la pestaña para que al pasar de página se muestre al instante.
@@ -46,8 +48,13 @@ let DM="ship",cart={},F={cats:new Set(["m","n","f"]),av:"all",q:""},order=null,M
 
 const count=()=>Object.values(cart).reduce((a,b)=>a+b,0);
 const bruto=()=>Object.entries(cart).reduce((a,[id,q])=>a+P[id].price*q,0);
-const promoDesc=()=>Reglas.descuento3x2(Object.entries(cart).map(([id,q])=>({precio:P[id].price,q,promo:P[id].promo})));
-const sub=()=>Math.round((bruto()-promoDesc())*100)/100; // subtotal con la promo 3x2 aplicada
+// Packs: el descuento se calcula con la misma función que usa el servidor (js/rules.js)
+const packInfo=()=>Reglas.descuentoPacks(Object.entries(cart).map(([id,q])=>({id:+id,precio:P[id].price,q})),PACKS.map(k=>({id:k.id,nombre:k.name,pct:k.pct,ids:k.ids})));
+const promoDesc=()=>packInfo().total;
+const packsOf=i=>PACKS.filter(k=>k.ids.includes(i));
+const packSum=k=>Math.round(k.ids.reduce((a,i)=>a+P[i].price,0)*100)/100;
+const packPrice=k=>Math.round(packSum(k)*(100-k.pct))/100;
+const sub=()=>Math.round((bruto()-promoDesc())*100)/100; // subtotal con el descuento por packs
 const ship=()=>sub()===0||sub()>=CONFIG.envio_gratis_desde||DM==="pick"?0:CONFIG.envio_costo;
 const total=()=>sub()+ship();
 

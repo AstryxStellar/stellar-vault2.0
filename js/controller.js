@@ -2,7 +2,7 @@
 let view="home",CE={},cur=0,GI=0,AM="in",busy=false,READY=false,PENDING=null,PF={},PE={};
 /* Cada vista es una página HTML independiente (index.html, catalogo.html, producto.html…).
    Dentro de pagar.html los pasos del pago (QR, confirmación) cambian sin recargar. */
-const PAGE={home:"index.html",cat:"catalogo.html",prod:"producto.html",fav:"favoritos.html",acct:"pedidos.html",co:"pagar.html",qrpay:"pagar.html",ok:"pagar.html",login:"ingresar.html",perfil:"perfil.html",help:"ayuda.html"};
+const PAGE={home:"index.html",cat:"catalogo.html",prod:"producto.html",fav:"favoritos.html",acct:"pedidos.html",co:"pagar.html",qrpay:"pagar.html",ok:"pagar.html",login:"ingresar.html",perfil:"perfil.html",help:"ayuda.html",ofer:"ofertas.html"};
 const HERE=document.body.dataset.page||"home";
 // Datos que pasan de una página a la siguiente (avisos, página a la que volver después de iniciar sesión)
 const SS={get(k){try{const v=sessionStorage.getItem(k);sessionStorage.removeItem(k);return v==null?null:JSON.parse(v)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
@@ -25,10 +25,10 @@ function render(){
  if(view==="co"&&!count()){$("#app").innerHTML=`<div class="panel empty" style="max-width:520px;margin:0 auto"><h1 class="h2" tabindex="-1">Tu carrito está vacío</h1><p>Añade productos para finalizar un pedido.</p><a class="btn" style="width:auto;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none" href="catalogo.html">Ver catálogo</a></div>`;document.title="Finalizar pedido – STELLAR VAULT";return}
  if(view==="prod"&&!P[cur]){$("#app").innerHTML=`<div class="panel empty" style="max-width:520px;margin:0 auto"><h1 class="h2" tabindex="-1">Producto no encontrado</h1><p>El producto que buscas no existe o ya no está disponible.</p><a class="btn" style="width:auto;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none" href="catalogo.html">Ver catálogo</a></div>`;document.title="Producto no encontrado – STELLAR VAULT";return}
  if(view==="co")prefillCheckout();
- view==="home"?home():view==="cat"?catalog():view==="help"?help():view==="prod"?detail():view==="ok"?done():view==="login"?login():view==="acct"?acct():view==="fav"?favs():view==="perfil"?perfil():view==="qrpay"?qrpay():checkout();
+ view==="home"?home():view==="cat"?catalog():view==="help"?help():view==="ofer"?ofertas():view==="prod"?detail():view==="ok"?done():view==="login"?login():view==="acct"?acct():view==="fav"?favs():view==="perfil"?perfil():view==="qrpay"?qrpay():checkout();
  if(view==="login"&&!PENDING)setTimeout(initGoogle,0);
  saveCart();
- document.title=(view==="prod"?P[cur].name:{home:"Inicio",cat:"Catálogo",help:"Ayuda",login:AM==="up"?"Crear cuenta":"Iniciar sesión",acct:"Mis pedidos",fav:"Favoritos",perfil:"Mi perfil",qrpay:"Pagar con DeUna",co:"Finalizar pedido",ok:"Pedido confirmado"}[view])+" – STELLAR VAULT"}
+ document.title=(view==="prod"?P[cur].name:{home:"Inicio",cat:"Catálogo",help:"Ayuda",ofer:"Ofertas",login:AM==="up"?"Crear cuenta":"Iniciar sesión",acct:"Mis pedidos",fav:"Favoritos",perfil:"Mi perfil",qrpay:"Pagar con DeUna",co:"Finalizar pedido",ok:"Pedido confirmado"}[view])+" – STELLAR VAULT"}
 function togCat(k){F.cats.has(k)?F.cats.delete(k):F.cats.add(k);render()}
 // Buscar desde cualquier página lleva al catálogo con el texto escrito.
 $("#q").oninput=e=>{F.q=e.target.value;if(HERE!=="cat"){SS.set("sv_buscar",1);go("cat","q="+encodeURIComponent(F.q));return}catPage=1;render()};
@@ -39,6 +39,12 @@ function add(id,n=1){if(!USER){needLogin("Inicia sesión para añadir productos 
  const a=document.activeElement,key=a&&a.dataset&&a.dataset.add;
  render();toast(`${n>1?n+" × ":""}${P[id].name} añadido al carrito`);
  const b=key&&document.querySelector(`[data-add="${key}"]:not([disabled])`);(b||$("#toast button")).focus()}
+function addPack(id){
+ if(!USER){needLogin("Inicia sesión para añadir productos al carrito.");return}
+ const k=PACKS.find(x=>x.id===id);if(!k)return;
+ const n=k.ids.reduce((a,i)=>a+cartAdd(i,1),0);
+ if(!n){toast("Ya tienes el máximo disponible de este pack en tu carrito.",null,null,"warn");return}
+ render();toast(n<k.ids.length?`Pack ${k.name}: añadimos ${n} de ${k.ids.length} productos (el resto ya está al máximo)`:`Pack ${k.name} añadido al carrito`);const b=$("#toast button");b&&b.focus()}
 function buy(id){if(!USER){needLogin("Inicia sesión para comprar.");return}const n=Math.min(+$("#qty").value||1,room(id));if(n>0)cartAdd(id,n);go("co")}
 function setQty(id,d){const name=P[id].name,removed=cartChange(id,d);render();drawer();
  if(removed)toast(`${name} eliminado del carrito`,"Deshacer","undoRm()","del");else if(cart[id])toast(`${name}: ${cart[id]} en el carrito`,null);
@@ -145,7 +151,7 @@ document.addEventListener("focusin",e=>{if(!e.target.closest(".uwrap"))closeUser
 /* --- Arranque de cada página: datos de la base (al instante desde la copia de la pestaña, si existe) --- */
 function startView(){
  const qp=new URLSearchParams(location.search);view=HERE;
- if(HERE==="cat"){const c=(qp.get("cat")||"").split(",").filter(k=>["m","n","f"].includes(k));F={cats:new Set(c.length?c:["m","n","f"]),av:["stock","pre","promo","rebaja"].includes(qp.get("disp"))?qp.get("disp"):"all",q:qp.get("q")||""};$("#q").value=F.q}
+ if(HERE==="cat"){const c=(qp.get("cat")||"").split(",").filter(k=>["m","n","f"].includes(k));F={cats:new Set(c.length?c:["m","n","f"]),av:["stock","pre","pack","rebaja"].includes(qp.get("disp"))?qp.get("disp"):"all",q:qp.get("q")||""};$("#q").value=F.q}
  if(HERE==="prod"){cur=P.findIndex(p=>String(p.dbId)===qp.get("id"));GI=0}
  if(HERE==="login"){BACK=SS.get("sv_volver");if(qp.get("modo")==="registro")AM="up"}}
 (async function init(){
