@@ -53,7 +53,7 @@ function home(){
  <ul class="chips"><li>Envío gratis desde ${FREE()} USD</li><li><button class="chipbtn" onclick="goCat(['f'])">Figuras coleccionables →</button></li></ul></div>
  <img class="hlogo" src="${LOGO}" alt="Logo de STELLAR VAULT: ilustración anime en un círculo rojo y negro" width="260" height="260">
 </section>
- <div class="tiles">${CATS().map(([k,t])=>[k,t,P.findIndex(x=>x.cat===k)]).map(([k,t,i])=>`<button class="tile" onclick="setCat('${k}')" aria-label="Ver ${t} (${P.filter(x=>x.cat===k).length} títulos)" style="--tint:${P[i].tint};--c:${P[i].c}"><div class="tw">${cover(P[i],46)}</div><div><b>${t}</b><span>${P.filter(x=>x.cat===k).length} títulos · Ver todos →</span></div></button>`).join("")}</div>
+ <div class="tiles">${CATS().filter(([k])=>k!=="f").map(([k,t])=>[k,t,P.findIndex(x=>x.cat===k)]).map(([k,t,i])=>`<button class="tile" onclick="setCat('${k}')" aria-label="Ver ${t} (${P.filter(x=>x.cat===k).length} títulos)" style="--tint:${P[i].tint};--c:${P[i].c}"><div class="tw">${cover(P[i],46)}</div><div><b>${t}</b><span>${P.filter(x=>x.cat===k).length} títulos · Ver todos →</span></div></button>`).join("")}</div>
  
  ${homeRow("🏷️ En rebaja","Descuentos en productos elegidos de cada categoría",gridOf(P.filter(p=>p.was).sort((a,b)=>pctOff(b)-pctOff(a)).slice(0,4)),"go('ofer')")}
  ${homeRow("📦 Packs","Figuras y libros de una misma serie con descuento",PACKS.length?`<div class="grid packs">${[...PACKS].sort((a,b)=>(packSum(b)-packPrice(b))-(packSum(a)-packPrice(a))).slice(0,3).map(packCard).join("")}</div>`:"","go('ofer')")}
