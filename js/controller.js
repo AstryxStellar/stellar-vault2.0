@@ -1,29 +1,40 @@
 /* ===== CONTROLADOR: rutas, eventos del usuario; une modelo y vista. ===== */
 let view="home",CE={},cur=0,GI=0,AM="in",busy=false,READY=false,PENDING=null,PF={},PE={};
-const HASH={home:"",cat:"#/catalogo",help:"#/ayuda",co:"",login:"#/ingresar",acct:"#/pedidos",fav:"#/favoritos",perfil:"#/perfil",qrpay:""};
-function setHash(h){if(location.hash===h||(!h&&!location.hash))return;try{history.pushState(null,"",location.pathname+location.search+h)}catch(e){location.hash=h}}
-function go(v){view=v;if(v==="co"){CE={};PAYMSG=""}if(v!=="qrpay")stopQr();if(v==="acct")ORD.fresh=false;if(v==="perfil"){PF={};PE={}}setHash(HASH[v]);render();scrollTo(0,0);const h=$("#app h1");h&&h.focus()}
-function route(force){const h=location.hash,m=h.match(/^#\/p\/(\d+)$/);if(m&&P[+m[1]]){cur=+m[1];GI=0;view="prod"}else if(h==="#/catalogo")view="cat";else if(h==="#/ayuda")view="help";else if(h==="#/ingresar")view="login";else if(h==="#/pedidos")view="acct";else if(h==="#/favoritos")view="fav";else if(h==="#/perfil")view="perfil";else if(force||view==="prod"||view==="cat"||view==="help"||view==="login"||view==="acct"||view==="fav"||view==="perfil")view="home";render()}
-let navT;function onNav(){clearTimeout(navT);navT=setTimeout(()=>{route(true);scrollTo(0,0);const h=$("#app h1");h&&h.focus()},0)}
-addEventListener("hashchange",onNav);addEventListener("popstate",onNav);
-function goCat(cats,av){F={cats:new Set(cats),av:av||"all",q:""};$("#q").value="";go("cat")}
+/* Cada vista es una página HTML independiente (index.html, catalogo.html, producto.html…).
+   Dentro de pagar.html los pasos del pago (QR, confirmación) cambian sin recargar. */
+const PAGE={home:"index.html",cat:"catalogo.html",prod:"producto.html",fav:"favoritos.html",acct:"pedidos.html",co:"pagar.html",qrpay:"pagar.html",ok:"pagar.html",login:"ingresar.html",perfil:"perfil.html",help:"ayuda.html"};
+const HERE=document.body.dataset.page||"home";
+// Datos que pasan de una página a la siguiente (avisos, página a la que volver después de iniciar sesión)
+const SS={get(k){try{const v=sessionStorage.getItem(k);sessionStorage.removeItem(k);return v==null?null:JSON.parse(v)}catch(e){return null}},set(k,v){try{sessionStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let LEAVING=false,BACK=null;
+const prodUrl=i=>"producto.html?id="+P[i].dbId;
+function go(v,qs){
+ if(PAGE[v]!==PAGE[HERE]||qs){LEAVING=true;saveCart();location.href=PAGE[v]+(qs?"?"+qs:"");return}
+ view=v;if(v==="co"){CE={};PAYMSG=""}if(v!=="qrpay")stopQr();if(v==="acct")ORD.fresh=false;if(v==="perfil"){PF={};PE={}}render();scrollTo(0,0);const h=$("#app h1");h&&h.focus()}
+function goBack(){const b=BACK;BACK=null;if(b&&/^[a-z]+\.html/.test(b)&&!/^ingresar/.test(b)){LEAVING=true;saveCart();location.href=b}else go("home")}
+function goCat(cats,av){
+ if(HERE==="cat"){F={cats:new Set(cats),av:av||"all",q:""};$("#q").value="";catPage=1;render();scrollTo(0,0);const h=$("#app h1");h&&h.focus();return}
+ const qs=[cats.length===3?"":"cat="+cats.join(","),av&&av!=="all"?"disp="+av:""].filter(Boolean).join("&");go("cat",qs||undefined)}
 function setCat(k){goCat([k])}
 function render(){
  if(!READY)return;
- if((view==="acct"||view==="fav"||view==="perfil")&&!USER){view="login";setHash(HASH.login)}
- if(view==="qrpay"&&!PAGO){view="home"}
- if(view==="co"&&!USER){needLogin("Inicia sesión para pagar tu pedido.");return}
- if(view==="co"&&!count()){go("cat");return}
- if(view==="co")prefillCheckout();
+ if((view==="acct"||view==="fav"||view==="perfil"||view==="co")&&!USER){needLogin(view==="co"?"Inicia sesión para pagar tu pedido.":"Inicia sesión para continuar.");return}
+ if(view==="qrpay"&&!PAGO)view="co";
  if(view==="acct"&&!ORD.fresh){ORD.fresh=true;loadOrders().then(()=>{if(view==="acct")render()})}
- header();view==="home"?home():view==="cat"?catalog():view==="help"?help():view==="prod"?detail():view==="ok"?done():view==="login"?login():view==="acct"?acct():view==="fav"?favs():view==="perfil"?perfil():view==="qrpay"?qrpay():checkout();
+ header();
+ if(view==="co"&&!count()){$("#app").innerHTML=`<div class="panel empty" style="max-width:520px;margin:0 auto"><h1 class="h2" tabindex="-1">Tu carrito está vacío</h1><p>Añade productos para finalizar un pedido.</p><a class="btn" style="width:auto;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none" href="catalogo.html">Ver catálogo</a></div>`;document.title="Finalizar pedido – STELLAR VAULT";return}
+ if(view==="prod"&&!P[cur]){$("#app").innerHTML=`<div class="panel empty" style="max-width:520px;margin:0 auto"><h1 class="h2" tabindex="-1">Producto no encontrado</h1><p>El producto que buscas no existe o ya no está disponible.</p><a class="btn" style="width:auto;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none" href="catalogo.html">Ver catálogo</a></div>`;document.title="Producto no encontrado – STELLAR VAULT";return}
+ if(view==="co")prefillCheckout();
+ view==="home"?home():view==="cat"?catalog():view==="help"?help():view==="prod"?detail():view==="ok"?done():view==="login"?login():view==="acct"?acct():view==="fav"?favs():view==="perfil"?perfil():view==="qrpay"?qrpay():checkout();
  if(view==="login"&&!PENDING)setTimeout(initGoogle,0);
+ saveCart();
  document.title=(view==="prod"?P[cur].name:{home:"Inicio",cat:"Catálogo",help:"Ayuda",login:AM==="up"?"Crear cuenta":"Iniciar sesión",acct:"Mis pedidos",fav:"Favoritos",perfil:"Mi perfil",qrpay:"Pagar con DeUna",co:"Finalizar pedido",ok:"Pedido confirmado"}[view])+" – STELLAR VAULT"}
 function togCat(k){F.cats.has(k)?F.cats.delete(k):F.cats.add(k);render()}
-$("#q").oninput=e=>{F.q=e.target.value;if(view!=="cat"){view="cat";setHash("#/catalogo")}render()};
+// Buscar desde cualquier página lleva al catálogo con el texto escrito.
+$("#q").oninput=e=>{F.q=e.target.value;if(HERE!=="cat"){SS.set("sv_buscar",1);go("cat","q="+encodeURIComponent(F.q));return}catPage=1;render()};
 
 /* --- Carrito --- */
-function needLogin(msg){PENDING=null;AM="in";toast(msg,null,null,"warn");go("login")}
+function needLogin(msg){PENDING=null;AM="in";if(HERE!=="login")SS.set("sv_volver",location.pathname.slice(1)+location.search);go("login");toast(msg,null,null,"warn")}
 function add(id,n=1){if(!USER){needLogin("Inicia sesión para añadir productos al carrito.");return}n=cartAdd(id,n);if(n<=0)return;
  const a=document.activeElement,key=a&&a.dataset&&a.dataset.add;
  render();toast(`${n>1?n+" × ":""}${P[id].name} añadido al carrito`);
@@ -65,9 +76,9 @@ async function submitPay(){
  try{
   const [d]=await Promise.all([placeOrder(),new Promise(r=>setTimeout(r,600))]);
   busy=false;
-  if(d.pago&&M==="qr"){view="qrpay";setHash("");render();startQrPoll();scrollTo(0,0);const h=$("#app h1");h&&h.focus();return}
+  if(d.pago&&M==="qr"){view="qrpay";render();startQrPoll();scrollTo(0,0);const h=$("#app h1");h&&h.focus();return}
   if(d.pago){LS.set("sv_cart_pend",{cart,ts:Date.now()});location.href=d.pago.url;return} // pasa a la pantalla de pago
-  view="ok";setHash("");render();scrollTo(0,0);$("#app h1").focus()
+  view="ok";render();scrollTo(0,0);$("#app h1").focus()
  }catch(e){
   busy=false;
   if(e.errores)CE=e.errores;else toast(e.message||"No se pudo registrar tu pedido. Intenta de nuevo.",null,null,"del");
@@ -82,7 +93,7 @@ function startQrPoll(){stopQr();qrT=setInterval(async()=>{
 async function cancelQr(){if(!PAGO)return;stopQr();try{await api("POST","/api/pagos/"+PAGO.token+"/rechazar",{motivo:"cancelado"})}catch(e){}payFailed("cancelado")}
 function payFailed(m){
  PAGO=null;PAYMSG={saldo:"El pago fue rechazado: saldo insuficiente en la cuenta DeUna. No se realizó ningún cobro.",cancelado:"El pago se canceló. No se realizó ningún cobro.",expirado:"El tiempo para pagar venció. No se realizó ningún cobro."}[m]||"El pago no se completó. No se realizó ningún cobro.";
- loadData().catch(()=>{});view="co";setHash("");render();scrollTo(0,0);const h=$("#app h1");h&&h.focus()}
+ loadData().catch(()=>{});view="co";render();scrollTo(0,0);const h=$("#app h1");h&&h.focus()}
 function pick(i){GI=i;const p=P[cur];$("#bigimg").innerHTML=slide(p,i,280);$("#cap").textContent=capt(p,i);document.querySelectorAll(".th button").forEach((b,j)=>b.setAttribute("aria-pressed",j===i))}
 function finish(){DM="ship";M="fisico";go("home")}
 
@@ -93,9 +104,8 @@ async function authSubmit(e){
  const r=up?await registerUser(nm,em,pw):await loginUser(em,pw);
  if(r.pendiente||r.noVerificado){PENDING={email:r.email||em,simulado:r.simulado,error:r.error,seg:r.seguimiento};render();startPoll();const h=$("#app h1");h&&h.focus();return}
  if(r.error){const b=$("#aerr");b.textContent="⚠ "+r.error;b.hidden=false;b.focus();return}
- await loadFavs();
  const first=r.user.name.split(" ")[0];
- go("home");toast(up?`Cuenta creada. ¡Bienvenido, ${first}!`:`Sesión iniciada. ¡Hola, ${first}!`,null)}
+ goBack();toast(up?`Cuenta creada. ¡Bienvenido, ${first}!`:`Sesión iniciada. ¡Hola, ${first}!`,null)}
 function googleNoConfig(){toast("El inicio con Google aún no está configurado en el servidor.",null,null,"warn")}
 function initGoogle(tries=0){
  const box=$("#gbtn");if(!box||!GOOGLE_ID)return;
@@ -103,9 +113,10 @@ function initGoogle(tries=0){
  google.accounts.id.initialize({client_id:GOOGLE_ID,callback:onGoogle,ux_mode:"popup"});
  google.accounts.id.renderButton(box,{theme:"outline",size:"large",shape:"pill",width:Math.min(380,box.offsetWidth||380),locale:"es",text:AM==="up"?"signup_with":"signin_with"})}
 async function onGoogle(resp){
+ const box=$("#gbtn");box&&box.insertAdjacentHTML("afterend",'<p class="foot" id="gwait" role="status"><span class="spin"></span> Iniciando sesión con Google…</p>');
  const r=await googleLogin(resp.credential);
- if(r.error){toast(r.error,null,null,"warn");return}
- await loadFavs();PENDING=null;stopPoll();go("home");toast("Sesión iniciada con Google. ¡Hola, "+r.user.name.split(" ")[0]+"!",null)}
+ if(r.error){const w=$("#gwait");w&&w.remove();toast(r.error,null,null,"warn");return}
+PENDING=null;stopPoll();goBack();toast("Sesión iniciada con Google. ¡Hola, "+r.user.name.split(" ")[0]+"!",null)}
 let pollT=null;
 function stopPoll(){clearInterval(pollT);pollT=null}
 function startPoll(){stopPoll();if(!PENDING||!PENDING.seg)return;pollT=setInterval(async()=>{if(!PENDING||PENDING.verified||view!=="login"){stopPoll();return}try{const d=await api("GET","/api/verificacion-estado?s="+PENDING.seg);if(d.verificado){PENDING.verified=true;PENDING.error=null;stopPoll();render();toast("¡Correo verificado! Ya puedes iniciar sesión.",null)}}catch(e){}},3000)}
@@ -131,19 +142,34 @@ document.addEventListener("click",e=>{if(!e.target.closest(".uwrap"))closeUserMe
 document.addEventListener("focusin",e=>{if(!e.target.closest(".uwrap"))closeUserMenu()});
 
 /* --- Arranque: primero se cargan los datos desde la base de datos --- */
+/* --- Arranque de cada página: datos de la base (al instante desde la copia de la pestaña, si existe) --- */
+function startView(){
+ const qp=new URLSearchParams(location.search);view=HERE;
+ if(HERE==="cat"){const c=(qp.get("cat")||"").split(",").filter(k=>["m","n","f"].includes(k));F={cats:new Set(c.length?c:["m","n","f"]),av:["stock","pre"].includes(qp.get("disp"))?qp.get("disp"):"all",q:qp.get("q")||""};$("#q").value=F.q}
+ if(HERE==="prod"){cur=P.findIndex(p=>String(p.dbId)===qp.get("id"));GI=0}
+ if(HERE==="login"){BACK=SS.get("sv_volver");if(qp.get("modo")==="registro")AM="up"}}
 (async function init(){
- try{await loadData();await restoreSession()}
- catch(e){$("#app").innerHTML='<div class="panel empty"><b>No se pudo conectar con el servidor.</b><br>Ejecuta <code>npm start</code> en la carpeta del proyecto y abre <code>http://localhost:3000</code>.</div>';return}
- READY=true;route();
+ const cached=cachedBoot();
+ try{if(cached)applyBoot(cached);else await loadData()}
+ catch(e){$("#app").innerHTML='<div class="panel empty" role="alert"><b>No se pudo conectar con el servidor.</b><br>Si la tienda estaba inactiva, espera unos segundos y <a href="">vuelve a cargar la página</a>.</div>';return}
+ loadCart();
+ // Enlaces antiguos con # (#/catalogo, #/p/3…) se envían a su página
+ const h=location.hash;
+ if(/^#\/./.test(h)){const m=h.match(/^#\/p\/(\d+)$/),map={"#/catalogo":"catalogo.html","#/ayuda":"ayuda.html","#/ingresar":"ingresar.html","#/pedidos":"pedidos.html","#/favoritos":"favoritos.html","#/perfil":"perfil.html"};const to=m&&P[+m[1]]?prodUrl(+m[1]):map[h];if(to){location.replace(to);return}}
+ READY=true;startView();render();
+ const t=SS.get("sv_toast");if(t)toast(...t);
+ if(SS.get("sv_buscar")){const q=$("#q");q.focus();q.setSelectionRange(q.value.length,q.value.length)}
+ // Con la copia en pantalla, se piden los datos frescos y se actualiza la vista si el usuario no está escribiendo
+ if(cached)loadData().then(()=>{const a=document.activeElement;if(["home","cat","prod","fav","help"].includes(view)&&!(a&&a.matches("input,textarea,select"))&&!$("#drawerOv.on"))render();else header()}).catch(()=>{});
  const pq=new URLSearchParams(location.search),pg=pq.get("pago"),pn=pq.get("n"),pm=pq.get("m");
  if(pg){
-  history.replaceState(null,"",location.pathname+location.hash);
+  history.replaceState(null,"",location.pathname);
   if(pg==="ok"){
-   if(USER){try{await finishPaid(pn);view="ok";setHash("");render();toast("¡Pago realizado! Te enviamos el comprobante por correo.",null)}catch(e){toast("Tu pago se aprobó. Revisa tus pedidos para ver el detalle.",null);go("acct")}}
-   else $("#app").innerHTML='<div class="panel empty" style="max-width:520px;margin:0 auto"><div class="check" aria-hidden="true">✓</div><h1 class="h2" tabindex="-1">¡Pago realizado!</h1><p>Tu pago del pedido <b>#'+esc(pn||"")+'</b> fue aprobado. Ya puedes cerrar esta ventana y volver a la tienda en tu otro dispositivo.</p><button class="btn" style="width:auto;padding:0 24px" onclick="location.href=\'/\'">Ir a la tienda</button></div>'}
+   if(USER){try{await finishPaid(pn);view="ok";render();toast("¡Pago realizado! Te enviamos el comprobante por correo.",null)}catch(e){toast("Tu pago se aprobó. Revisa tus pedidos para ver el detalle.",null);go("acct")}}
+   else $("#app").innerHTML='<div class="panel empty" style="max-width:520px;margin:0 auto"><div class="check" aria-hidden="true">✓</div><h1 class="h2" tabindex="-1">¡Pago realizado!</h1><p>Tu pago del pedido <b>#'+esc(pn||"")+'</b> fue aprobado. Ya puedes cerrar esta ventana y volver a la tienda en tu otro dispositivo.</p><a class="btn" style="width:auto;padding:0 24px;display:inline-flex;align-items:center;text-decoration:none" href="index.html">Ir a la tienda</a></div>'}
   else{const pend=LS.get("sv_cart_pend",null);LS.set("sv_cart_pend",null);if(pend&&USER&&pend.cart)cart=pend.cart;payFailed(pm||"cancelado")}}
  const vq=new URLSearchParams(location.search).get("verificacion");
- if(vq){history.replaceState(null,"",location.pathname+location.hash);if(vq==="ok")toast("Correo verificado. Ya puedes iniciar sesión.",null);else toast("El enlace de verificación no es válido o venció. Pide uno nuevo desde el registro.",null,null,"warn")}})();
+ if(vq){history.replaceState(null,"",location.pathname);if(vq==="ok")toast("Correo verificado. Ya puedes iniciar sesión.",null);else toast("El enlace de verificación no es válido o venció. Pide uno nuevo desde el registro.",null,null,"warn")}})();
 
 /* --- Paginación, perfil y modo oscuro --- */
 function goPage(k,p){if(k==="cat")catPage=p;else favPage=p;render();const t=$("#cat")||$("#app h1");t&&t.scrollIntoView({behavior:"smooth",block:"start"})}

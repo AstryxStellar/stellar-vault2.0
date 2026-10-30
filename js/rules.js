@@ -31,6 +31,14 @@
     }
     return err;
   }
-  const api = { validar };
+  // Promo 3x2: entre todas las unidades con promo del carrito, por cada 3 la más barata sale gratis.
+  // items: [{ precio, q, promo }]
+  function descuento3x2(items) {
+    const u = [];
+    for (const i of items) if (i.promo === '3x2') for (let k = 0; k < i.q; k++) u.push(i.precio);
+    u.sort((a, b) => a - b);
+    return Math.round(u.slice(0, Math.floor(u.length / 3)).reduce((a, b) => a + b, 0) * 100) / 100;
+  }
+  const api = { validar, descuento3x2 };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Reglas = api;
 })(typeof window !== 'undefined' ? window : this);

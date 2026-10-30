@@ -23,16 +23,31 @@ function applyComments(list){const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]
 function applyData(d){
  GOOGLE_ID=d.google||null;CONFIG=d.config;RULES=d.reglas;CITY=d.provincias;PROV=Object.keys(CITY);
  CAT={};CATP={};d.categorias.forEach(c=>{CAT[c.codigo]=c.nombre;CATP[c.codigo]=c.plural});
- P=d.productos.map((p,i)=>({id:i,dbId:p.id,name:p.name,by:p.by,pub:p.pub,cat:p.cat,price:p.price,stock:p.stock,c:p.c,tint:p.tint,tc:p.tc,pre:p.pre||undefined,dest:!!p.dest,imgs:p.imgs}));
+ P=d.productos.map((p,i)=>({id:i,dbId:p.id,name:p.name,by:p.by,pub:p.pub,cat:p.cat,price:p.price,stock:p.stock,c:p.c,tint:p.tint,tc:p.tc,pre:p.pre||undefined,dest:!!p.dest,promo:p.promo||undefined,imgs:p.imgs}));
  D=d.productos.map(p=>p.desc);
  applyComments(d.comentarios)}
-async function loadData(){applyData(await api("GET","/api/bootstrap"))}
+// Una sola petición trae el catálogo y, si hay sesión, el usuario y sus favoritos.
+// Se guarda una copia en la pestaña para que al pasar de página se muestre al instante.
+const BOOT_KEY="sv_boot";
+function cachedBoot(){try{const c=JSON.parse(sessionStorage.getItem(BOOT_KEY));return c&&c.tk===(TOKEN||"")?c.d:null}catch(e){return null}}
+function applyBoot(d){
+ const keep=cartByDb();applyData(d);cartFromDb(keep);
+ if(d.usuario){setUser(d.usuario);const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));FAV=new Set((d.favoritos||[]).map(i=>idx[i]).filter(i=>i!=null))}
+ else if(TOKEN){TOKEN=null;LS.set("sv_token",null);USER=null;ME=null}}
+async function loadData(){const d=await api("GET","/api/bootstrap");applyBoot(d);try{sessionStorage.setItem(BOOT_KEY,JSON.stringify({tk:TOKEN||"",d}))}catch(e){}return d}
+// El carrito se guarda por id de la base, así sobrevive al cambio de página y a cambios del catálogo.
+function cartByDb(){return Object.entries(cart).filter(([i])=>P[i]).map(([i,q])=>[P[i].dbId,q])}
+function cartFromDb(list){const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));cart={};(list||[]).forEach(([d,q])=>{if(idx[d]!=null)cart[idx[d]]=q})}
+function saveCart(){if(USER)LS.set("sv_cart",{u:USER,items:cartByDb()})}
+function loadCart(){const s=LS.get("sv_cart",null);if(s&&USER&&s.u===USER)cartFromDb(s.items)}
 
 /* --- Estado de la tienda --- */
 let DM="ship",cart={},F={cats:new Set(["m","n","f"]),av:"all",q:""},order=null,M="fisico";
 
 const count=()=>Object.values(cart).reduce((a,b)=>a+b,0);
-const sub=()=>Object.entries(cart).reduce((a,[id,q])=>a+P[id].price*q,0);
+const bruto=()=>Object.entries(cart).reduce((a,[id,q])=>a+P[id].price*q,0);
+const promoDesc=()=>Reglas.descuento3x2(Object.entries(cart).map(([id,q])=>({precio:P[id].price,q,promo:P[id].promo})));
+const sub=()=>Math.round((bruto()-promoDesc())*100)/100; // subtotal con la promo 3x2 aplicada
 const ship=()=>sub()===0||sub()>=CONFIG.envio_gratis_desde||DM==="pick"?0:CONFIG.envio_costo;
 const total=()=>sub()+ship();
 
@@ -74,8 +89,8 @@ let USER=null,ME=null,MYORDERS=[],FAV=new Set();const ORD={fresh:false,loaded:fa
 const userName=()=>ME&&ME.nombre;
 const ordersOf=()=>MYORDERS;
 function updateMe(u){ME=u;USER=u.email;V.email=u.email;V.name=u.nombre;V.tel=u.telefono||V.tel;if(u.prov){V.prov=u.prov;V.city=u.city}if(u.addr)V.addr=u.addr}
-function setUser(u,token){if(token){TOKEN=token;LS.set("sv_token",token)}updateMe(u);ORD.fresh=false;ORD.loaded=false}
-function endSession(){if(TOKEN)api("POST","/api/logout").catch(()=>{});TOKEN=null;LS.set("sv_token",null);USER=null;ME=null;MYORDERS=[];FAV=new Set();cart={};V.name="";V.email="";V.tel="";V.prov="";V.city="";V.addr="";ORD.fresh=false;ORD.loaded=false}
+function setUser(u,token){if(token){TOKEN=token;LS.set("sv_token",token);try{sessionStorage.removeItem(BOOT_KEY)}catch(e){}}updateMe(u);ORD.fresh=false;ORD.loaded=false}
+function endSession(){if(TOKEN)api("POST","/api/logout").catch(()=>{});TOKEN=null;LS.set("sv_token",null);LS.set("sv_cart",null);try{sessionStorage.removeItem(BOOT_KEY)}catch(e){}USER=null;ME=null;MYORDERS=[];FAV=new Set();cart={};V.name="";V.email="";V.tel="";V.prov="";V.city="";V.addr="";ORD.fresh=false;ORD.loaded=false}
 async function restoreSession(){if(!TOKEN)return;try{const d=await api("GET","/api/yo");if(d.usuario){setUser(d.usuario);await loadFavs()}else{TOKEN=null;LS.set("sv_token",null)}}catch(e){}}
 async function loadOrders(){try{MYORDERS=(await api("GET","/api/pedidos")).pedidos}catch(e){MYORDERS=[]}ORD.loaded=true}
 async function loadFavs(){try{const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));FAV=new Set((await api("GET","/api/favoritos")).favoritos.map(i=>idx[i]).filter(i=>i!=null))}catch(e){FAV=new Set()}}
