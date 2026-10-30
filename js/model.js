@@ -23,7 +23,7 @@ function applyComments(list){const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]
 function applyData(d){
  GOOGLE_ID=d.google||null;CONFIG=d.config;RULES=d.reglas;CITY=d.provincias;PROV=Object.keys(CITY);
  CAT={};CATP={};d.categorias.forEach(c=>{CAT[c.codigo]=c.nombre;CATP[c.codigo]=c.plural});
- P=d.productos.map((p,i)=>({id:i,dbId:p.id,name:p.name,by:p.by,pub:p.pub,cat:p.cat,price:p.price,stock:p.stock,c:p.c,tint:p.tint,tc:p.tc,pre:p.pre||undefined,dest:!!p.dest,promo:p.promo||undefined,imgs:p.imgs}));
+ P=d.productos.map((p,i)=>({id:i,dbId:p.id,name:p.name,by:p.by,pub:p.pub,cat:p.cat,price:p.price,stock:p.stock,c:p.c,tint:p.tint,tc:p.tc,pre:p.pre||undefined,dest:!!p.dest,promo:p.promo||undefined,was:p.was||undefined,sold:p.sold||0,imgs:p.imgs}));
  D=d.productos.map(p=>p.desc);
  applyComments(d.comentarios)}
 // Una sola petición trae el catálogo y, si hay sesión, el usuario y sus favoritos.

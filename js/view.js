@@ -20,6 +20,9 @@ function help(){
  ${q("¿Qué es una preventa?","Es una reserva de un producto que aún no llega. La fecha estimada aparece en la ficha del producto.")}
  ${q("¿Puedo cambiar o quitar productos?","Sí, desde el carrito puedes cambiar la cantidad o eliminar un producto con el ícono de papelera. Si te equivocas, usa “Deshacer”.")}
  ${q("¿Necesito más ayuda?","Escríbenos al correo o al teléfono que aparecen en la sección Contacto, al final de la página.")}</div>`}
+function homeRow(t,sub,list,av){
+ if(!list.length)return"";
+ return `<section class="hrow"><div class="sech"><div><h2 class="h2" style="margin:0">${t}</h2><p class="sub" style="margin:2px 0 0">${sub}</p></div>${av?`<button class="alink" onclick="goCat(['m','n','f'],'${av}')">Ver todas →</button>`:""}</div><div class="grid">${list.map(card).join("")}</div></section>`}
 function home(){
  $("#app").innerHTML=`<section class="hero2" aria-labelledby="hh" ${HERO_BG?`style="--hbg:linear-gradient(90deg,rgba(42,26,46,.88),rgba(42,26,46,.4)),url('${esc(HERO_BG)}') center/cover"`:""}>
  ${PET(70,10,"left:42%;top:14px")}${PET(44,40,"left:6%;bottom:18px")}${PET(90,-20,"right:30%;bottom:-24px")}${PET(36,15,"right:4%;top:20px")}
@@ -31,10 +34,13 @@ function home(){
 </section>
  <div class="tiles">${CATS().map(([k,t])=>[k,t,P.findIndex(x=>x.cat===k)]).map(([k,t,i])=>`<button class="tile" onclick="setCat('${k}')" aria-label="Ver ${t} (${P.filter(x=>x.cat===k).length} títulos)" style="--tint:${P[i].tint};--c:${P[i].c}"><div class="tw">${cover(P[i],46)}</div><div><b>${t}</b><span>${P.filter(x=>x.cat===k).length} títulos · Ver todos →</span></div></button>`).join("")}</div>
  
+ ${homeRow("🏷️ En rebaja","Descuentos en productos elegidos de cada categoría",P.filter(p=>p.was).sort((a,b)=>pctOff(b)-pctOff(a)).slice(0,4),"rebaja")}
+ ${homeRow("🔥 Ofertas 3x2","Lleva 3 figuras y la más barata sale gratis",P.filter(p=>p.promo).slice(0,4),"promo")}
+ ${homeRow("🛒 Los más comprados","Lo que más se llevan nuestros clientes",P.filter(p=>p.sold>0).sort((a,b)=>b.sold-a.sold).slice(0,4))}
  <h2 class="h2" style="margin:8px 0 16px">Selección de la tienda</h2><div class="grid">${P.filter(p=>p.dest).map(card).join("")}</div>
  <div class="cta"><button class="btn" style="width:auto;padding:0 28px" onclick="go('cat')">Ver todo el catálogo</button></div>`}
 function catalog(){
- const list=P.filter(p=>F.cats.has(p.cat)&&(F.av==="all"||(F.av==="stock"?!p.pre:!!p.pre))&&(p.name+p.by+CAT[p.cat]).toLowerCase().includes(F.q.toLowerCase()));
+ const list=P.filter(p=>F.cats.has(p.cat)&&(F.av==="all"||(F.av==="stock"?!p.pre:F.av==="promo"?!!p.promo:F.av==="rebaja"?!!p.was:!!p.pre))&&(p.name+p.by+CAT[p.cat]).toLowerCase().includes(F.q.toLowerCase()));
  list.sort((a,b)=>"mnf".indexOf(a.cat)-"mnf".indexOf(b.cat)||a.id-b.id);
  const cnt=c=>P.filter(p=>p.cat===c).length;
  const key=[...F.cats].join()+"|"+F.av+"|"+F.q;if(key!==catKey){catKey=key;catPage=1}
@@ -45,7 +51,7 @@ function catalog(){
  <div class="lbl">CATEGORÍAS</div>
  ${CATS().map(([k,t])=>`<label class="opt"><input type="checkbox" ${F.cats.has(k)?"checked":""} onchange="togCat('${k}')"><span>${t}</span><span>${cnt(k)}</span></label>`).join("")}
  <div class="lbl">DISPONIBILIDAD</div>
- ${[["all","Todos"],["stock","En stock"],["pre","Preventa oficial"]].map(([k,t])=>`<label class="opt"><input type="radio" name="av" ${F.av===k?"checked":""} onchange="F.av='${k}';render()"><span>${t}</span></label>`).join("")}
+ ${[["all","Todos",P.length],["stock","En stock",P.filter(p=>!p.pre).length],["pre","Preventa oficial",P.filter(p=>p.pre).length],["promo","🔥 Ofertas 3x2",P.filter(p=>p.promo).length],["rebaja","🏷️ Rebajas",P.filter(p=>p.was).length]].map(([k,t,n])=>`<label class="opt"><input type="radio" name="av" ${F.av===k?"checked":""} onchange="F.av='${k}';render()"><span>${t}</span><span>${n}</span></label>`).join("")}
  <button class="reset" onclick="F={cats:new Set(['m','n','f']),av:'all',q:''};$('#q').value='';render()">Restablecer filtros</button>
  <div class="note">Envío gratis desde ${FREE()} USD</div></aside>
  <section>${list.length?CATS().filter(([k])=>part.some(p=>p.cat===k)).map(([k,t])=>{const g=part.filter(p=>p.cat===k),tot=list.filter(p=>p.cat===k).length;return `<section class="cgroup" aria-labelledby="cg${k}"><h2 class="cgh" id="cg${k}">${t} <span>${tot} título${tot===1?"":"s"}</span></h2><div class="grid">${g.map(card).join("")}</div></section>`}).join("")+pager(list.length,catPage,PAGE_SIZE,"cat"):`<div class="panel empty">No encontramos productos con esos filtros.</div>`}</section></div>`;
@@ -60,15 +66,17 @@ function card(p){
  const inCart=cart[p.id]||0, out=!p.pre&&inCart>=p.stock;
  const st=p.pre?`<div class="stock p">● ${p.pre}</div>`:p.stock<=3?`<div class="stock w">● Últimas ${p.stock} unidades</div>`:`<div class="stock">● En stock · ${p.stock} unidades</div>`;
  const fv=FAV.has(p.id);
- return `<article class="prod" style="--tint:${p.tint};--tc:${p.tc};--c:${p.c}"><button class="fav${fv?" on":""}" data-fav="${p.id}" onclick="toggleFavUI(${p.id})" aria-pressed="${fv}" aria-label="${fv?"Quitar de favoritos":"Añadir a favoritos"}: ${esc(p.name)}">${fv?"♥":"♡"}</button>${p.promo?`<span class="ribbon" title="${PROMO_TXT}">🔥 Oferta 3x2</span>`:""}<a class="thumb" href="${prodUrl(p.id)}" tabindex="-1" aria-hidden="true">${cover(p)}</a>
+ return `<article class="prod" style="--tint:${p.tint};--tc:${p.tc};--c:${p.c}"><button class="fav${fv?" on":""}" data-fav="${p.id}" onclick="toggleFavUI(${p.id})" aria-pressed="${fv}" aria-label="${fv?"Quitar de favoritos":"Añadir a favoritos"}: ${esc(p.name)}">${fv?"♥":"♡"}</button>${p.promo?`<span class="ribbon" title="${PROMO_TXT}">🔥 Oferta 3x2</span>`:""}${p.was?`<span class="ribbon dsc">🏷️ −${pctOff(p)}%</span>`:""}<a class="thumb" href="${prodUrl(p.id)}" tabindex="-1" aria-hidden="true">${cover(p)}</a>
  <span class="tag">${CAT[p.cat]}</span><h3><a href="${prodUrl(p.id)}">${p.name}</a></h3><p>${p.by}</p><p>${p.pub}</p>${st}${inCart?`<div class="stock" style="color:var(--acc);margin-top:-6px">✓ ${inCart} en tu carrito</div>`:""}
- <div class="price">${money(p.price)} USD<small>IVA incl.</small></div>${p.promo?`<div class="promo-n">Lleva 3 y paga 2</div>`:""}
+ <div class="price">${priceHtml(p)} USD<small>IVA incl.</small></div>${p.promo?`<div class="promo-n">Lleva 3 y paga 2</div>`:""}
  <button class="btn" ${out?"disabled":""} data-add="${p.id}" onclick="add(${p.id})">${out?"Máximo en carrito":p.pre?"Reservar en preventa":"Añadir al carrito"}</button></article>`}
 let tt;function toast(m,lbl,fn,kind){if(typeof LEAVING!=="undefined"&&LEAVING){SS.set("sv_toast",[m,lbl,fn,kind]);return} // el aviso se muestra en la página siguiente
  const t=$("#toast");t.className="toast "+(kind||"ok");t.innerHTML=`<span aria-hidden="true" class="ti">${kind==="del"?"🗑":kind==="warn"?"🔒":"✓"}</span><span>${esc(m)}</span>${lbl===null?"":`<button onclick="${fn||"openCart()"}">${lbl||"Ver carrito"}</button>`}`;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),5000)}
 // Subtotal con la línea de la promo 3x2 (solo si aplica)
 function promoRows(){const d=promoDesc();return d>0?`<div class="row">Productos<b>${money(bruto())}</b></div><div class="row promo-r">Promo 3x2<b>−${money(d)}</b></div>`:""}
-const PROMO_TXT="Promo 3x2: lleva 3 mangas con promo y el más barato es gratis";
+const PROMO_TXT="Promo 3x2: por cada 3 productos con esta oferta, el más barato es gratis";
+const pctOff=p=>Math.round((1-p.price/p.was)*100);
+const priceHtml=p=>`${p.was?`<s class="was" aria-label="Precio anterior ${money(p.was)}">${money(p.was)}</s> `:""}${money(p.price)}`;
 function drawer(){
  const ids=Object.keys(cart);
  $("#drawer").innerHTML=`<div class="dh"><h2 id="dT">Tu carrito (${count()})</h2><button class="x" onclick="closeCart()" aria-label="Cerrar">✕</button></div>
@@ -143,9 +151,9 @@ function detail(){
  <section><span class="tag">${CAT[p.cat]}</span><h1 tabindex="-1" style="margin-top:10px">${p.name}</h1>
  <p style="margin:0 0 8px;color:var(--mute)">${/confirmar/.test(p.by)?"":`por <b style="color:var(--acc)">${p.by}</b> · `}${p.pub}</p>
  ${cl.length?`<div><span class="stars" role="img" aria-label="Calificación promedio ${avg.toFixed(1)} de 5">${"★".repeat(Math.round(avg))}${"☆".repeat(5-Math.round(avg))}</span> <small>${avg.toFixed(1)} · ${cl.length} comentario${cl.length>1?"s":""}</small></div>`:""}<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">
- <div style="font-size:24px;font-weight:800">${money(p.price)} <small style="font:400 13px Inter,Arial,sans-serif;color:var(--mute)">USD · IVA incluido</small></div>
+ <div style="font-size:24px;font-weight:800">${priceHtml(p)} <small style="font:400 13px Inter,Arial,sans-serif;color:var(--mute)">USD · IVA incluido</small></div>${p.was?`<div class="promo-box dscbox">🏷️ <b>Rebaja del ${pctOff(p)}%</b> · ahorras ${money(p.was-p.price)}</div>`:""}
  <h2 style="font-size:16px;margin:18px 0 4px">Acerca de este artículo</h2><ul>${bul.map(b=>`<li>${b}</li>`).join("")}</ul></section>
- <aside class="panel buy" aria-label="Comprar"><div class="big-p">${money(p.price)}</div>${p.promo?`<div class="promo-box">🔥 <b>Oferta 3x2</b><br>${PROMO_TXT}.</div>`:""}
+ <aside class="panel buy" aria-label="Comprar"><div class="big-p">${priceHtml(p)}</div>${p.promo?`<div class="promo-box">🔥 <b>Oferta 3x2</b><br>${PROMO_TXT}.</div>`:""}
  <div style="font-size:13px;color:var(--mute);margin:4px 0 10px">${p.price>=CONFIG.envio_gratis_desde?"Envío gratis":"Envío desde "+SHIPC()+" · gratis desde "+FREE()+" USD"} por Servientrega (solo Ecuador)<br>O retira gratis en tienda (Quito)</div>
  <div class="stock ${p.pre?"p":p.stock<=3?"w":""}" style="margin:0 0 8px">● ${p.pre||(p.stock<=3?"Últimas "+p.stock+" unidades":"En stock")}</div>
  ${rm>0?`<label for="qty" style="font-weight:700;font-size:13px;display:block">Cantidad</label><select id="qty">${Array.from({length:mx},(_,i)=>`<option>${i+1}</option>`).join("")}</select>

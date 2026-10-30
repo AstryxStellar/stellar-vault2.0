@@ -145,7 +145,7 @@ document.addEventListener("focusin",e=>{if(!e.target.closest(".uwrap"))closeUser
 /* --- Arranque de cada página: datos de la base (al instante desde la copia de la pestaña, si existe) --- */
 function startView(){
  const qp=new URLSearchParams(location.search);view=HERE;
- if(HERE==="cat"){const c=(qp.get("cat")||"").split(",").filter(k=>["m","n","f"].includes(k));F={cats:new Set(c.length?c:["m","n","f"]),av:["stock","pre"].includes(qp.get("disp"))?qp.get("disp"):"all",q:qp.get("q")||""};$("#q").value=F.q}
+ if(HERE==="cat"){const c=(qp.get("cat")||"").split(",").filter(k=>["m","n","f"].includes(k));F={cats:new Set(c.length?c:["m","n","f"]),av:["stock","pre","promo","rebaja"].includes(qp.get("disp"))?qp.get("disp"):"all",q:qp.get("q")||""};$("#q").value=F.q}
  if(HERE==="prod"){cur=P.findIndex(p=>String(p.dbId)===qp.get("id"));GI=0}
  if(HERE==="login"){BACK=SS.get("sv_volver");if(qp.get("modo")==="registro")AM="up"}}
 (async function init(){
