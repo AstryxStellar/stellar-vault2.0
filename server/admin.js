@@ -35,8 +35,10 @@ module.exports = function admin({ q, one, run, tx, HttpError, dbError, limitar, 
     if (!(precio > 0 && precio <= 10000)) throw new HttpError(422, { error: 'El precio debe estar entre 0.01 y 10000.' });
     if (!Number.isInteger(stock) || stock < 0 || stock > 9999) throw new HttpError(422, { error: 'El stock debe ser un número entero entre 0 y 9999.' });
     const color = /^#[0-9a-f]{6}$/i.test(b.color || '') ? b.color : '#be185d';
+    const antes = b.precio_antes === '' || b.precio_antes == null ? null : Math.round(Number(b.precio_antes) * 100) / 100;
+    if (antes !== null && !(antes > precio)) throw new HttpError(422, { error: 'El precio anterior debe ser mayor que el precio actual (así se muestra como rebaja).' });
     return { cat: cat.id, nombre: texto(b.nombre, 2, 120, 'Nombre'), autor: texto(b.autor, 2, 120, 'Autor o fabricante'), editorial: texto(b.editorial, 2, 120, 'Editorial o licencia'),
-      precio: Math.round(precio * 100) / 100, stock, preventa: String(b.preventa || '').trim() || null, promo: b.promo === '3x2' ? '3x2' : null,
+      precio: Math.round(precio * 100) / 100, precio_antes: antes, stock, preventa: String(b.preventa || '').trim() || null, promo: b.promo === '3x2' ? '3x2' : null,
       descripcion: texto(b.descripcion, 10, 2000, 'Descripción'), color };
   };
   const errorProducto = e => /UNIQUE constraint failed: productos\.nombre/.test(e.message) ? new HttpError(409, { error: 'Ya existe un producto con ese nombre.' }) : e instanceof HttpError ? e : dbError(e);
@@ -82,7 +84,7 @@ module.exports = function admin({ q, one, run, tx, HttpError, dbError, limitar, 
     },
     'GET /api/admin/productos': async ({ req }) => {
       exigir(req);
-      return { productos: await q(`SELECT p.id,c.codigo cat,c.nombre categoria,p.nombre,p.autor,p.editorial,p.precio,p.stock,p.preventa,p.promo,p.activo,p.color,p.descripcion,
+      return { productos: await q(`SELECT p.id,c.codigo cat,c.nombre categoria,p.nombre,p.autor,p.editorial,p.precio,p.precio_antes,p.stock,p.preventa,p.promo,p.activo,p.color,p.descripcion,
         (SELECT coalesce(sum(i.cantidad),0) FROM pedido_items i JOIN pedidos pe ON pe.id=i.pedido_id WHERE i.producto_id=p.id AND pe.estado<>'cancelado') vendidos
         FROM productos p JOIN categorias c ON c.id=p.categoria_id ORDER BY c.orden,p.nombre`), categorias: await q('SELECT codigo,nombre FROM categorias ORDER BY orden') };
     },
@@ -91,8 +93,8 @@ module.exports = function admin({ q, one, run, tx, HttpError, dbError, limitar, 
       try {
         const d = await datosProducto(body);
         const id = await tx(async t => {
-          const r = await t.run(`INSERT INTO productos(categoria_id,nombre,autor,editorial,precio,stock,color,tinte,tinte_texto,preventa,promo,descripcion)
-            VALUES (?,?,?,?,?,?,?,'#fdf2f8','#9d174d',?,?,?)`, d.cat, d.nombre, d.autor, d.editorial, d.precio, d.stock, d.color, d.preventa, d.promo, d.descripcion);
+          const r = await t.run(`INSERT INTO productos(categoria_id,nombre,autor,editorial,precio,precio_antes,stock,color,tinte,tinte_texto,preventa,promo,descripcion)
+            VALUES (?,?,?,?,?,?,?,?,'#fdf2f8','#9d174d',?,?,?)`, d.cat, d.nombre, d.autor, d.editorial, d.precio, d.precio_antes, d.stock, d.color, d.preventa, d.promo, d.descripcion);
           const id = Number(r.lastInsertRowid);
           await mov(t, id, 'alta', d.stock, 'Producto nuevo');
           return id;
@@ -106,8 +108,8 @@ module.exports = function admin({ q, one, run, tx, HttpError, dbError, limitar, 
       try {
         const d = await datosProducto({ ...body, stock: p.stock }); // el stock solo cambia con un movimiento
         await tx(async t => {
-          await t.run('UPDATE productos SET categoria_id=?,nombre=?,autor=?,editorial=?,precio=?,color=?,preventa=?,promo=?,descripcion=? WHERE id=?',
-            d.cat, d.nombre, d.autor, d.editorial, d.precio, d.color, d.preventa, d.promo, d.descripcion, p.id);
+          await t.run('UPDATE productos SET categoria_id=?,nombre=?,autor=?,editorial=?,precio=?,precio_antes=?,color=?,preventa=?,promo=?,descripcion=? WHERE id=?',
+            d.cat, d.nombre, d.autor, d.editorial, d.precio, d.precio_antes, d.color, d.preventa, d.promo, d.descripcion, p.id);
           await mov(t, p.id, 'edicion', 0, 'Datos del producto editados');
         });
         return { ok: true };

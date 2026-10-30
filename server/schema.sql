@@ -31,7 +31,8 @@ CREATE TABLE productos (
   tinte_texto  TEXT NOT NULL CHECK (tinte_texto GLOB '#[0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]'),
   preventa     TEXT CHECK (preventa IS NULL OR length(trim(preventa)) >= 3),
   destacado    INTEGER NOT NULL DEFAULT 0 CHECK (destacado IN (0,1)),
-  promo        TEXT CHECK (promo IS NULL OR promo = '3x2'), -- oferta 3x2 en algunos mangas
+  promo        TEXT CHECK (promo IS NULL OR promo = '3x2'), -- oferta 3x2 en figuras elegidas
+  precio_antes REAL CHECK (precio_antes IS NULL OR precio_antes > precio), -- rebaja: precio anterior (precio ya es el rebajado)
   descripcion  TEXT NOT NULL CHECK (length(trim(descripcion)) >= 10)
 );
 CREATE INDEX idx_productos_categoria ON productos(categoria_id);

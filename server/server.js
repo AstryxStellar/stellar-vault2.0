@@ -123,7 +123,8 @@ async function productos() {
   const imgs = {};
   (await q('SELECT producto_id,url FROM imagenes_producto ORDER BY producto_id,orden')).forEach(i => (imgs[i.producto_id] ||= []).push(i.url));
   return (await q(`SELECT p.id AS id,c.codigo AS "cat",p.nombre AS "name",p.autor AS "by",p.editorial AS "pub",p.precio AS "price",p.stock AS "stock",p.color AS "c",p.tinte AS "tint",p.tinte_texto AS "tc",
-                   p.preventa AS "pre",p.destacado AS "dest",p.promo AS "promo",p.descripcion AS "desc"
+                   p.preventa AS "pre",p.destacado AS "dest",p.promo AS "promo",p.precio_antes AS "was",p.descripcion AS "desc",
+                   (SELECT coalesce(sum(i.cantidad),0) FROM pedido_items i JOIN pedidos pe ON pe.id=i.pedido_id WHERE i.producto_id=p.id AND pe.estado<>'cancelado') AS "sold"
             FROM productos p JOIN categorias c ON c.id=p.categoria_id WHERE p.activo=1 ORDER BY c.orden,p.id`)) // los dados de baja no se muestran
     .map(p => ({ ...p, imgs: imgs[p.id] || [] }));
 }
@@ -554,7 +555,8 @@ async function actualizarCatalogo() {
   const cols = async t => (await q(`PRAGMA table_info(${t})`)).map(c => c.name);
   if (!(await cols('productos')).includes('promo')) await run("ALTER TABLE productos ADD COLUMN promo TEXT CHECK (promo IS NULL OR promo = '3x2')");
   if (!(await cols('pedidos')).includes('descuento')) await run('ALTER TABLE pedidos ADD COLUMN descuento REAL NOT NULL DEFAULT 0 CHECK (descuento >= 0)');
-  const { filasSemilla, RENOMBRES, PROMO_3X2, ENVIO_GRATIS } = require('./seed');
+  const { filasSemilla, RENOMBRES, PROMO_3X2, REBAJAS, ENVIO_GRATIS } = require('./seed');
+  if (!(await cols('productos')).includes('precio_antes')) await run('ALTER TABLE productos ADD COLUMN precio_antes REAL CHECK (precio_antes IS NULL OR precio_antes > precio)');
   await run("UPDATE configuracion SET valor=? WHERE clave='envio_gratis_desde'", ENVIO_GRATIS);
   const filas = Object.fromEntries(filasSemilla().map(f => [f[0], f]));
   let cambios = 0;
@@ -574,7 +576,16 @@ async function actualizarCatalogo() {
                VALUES ((SELECT id FROM categorias WHERE codigo=?),?,?,?,?,?,?,?,?,?,0,?)`, f[3], f[0], f[1], f[2], f[4], f[5], f[6], f[7], f[8], f[9], f[10]);
     cambios++;
   }
-  await run(`UPDATE productos SET promo = CASE WHEN nombre IN (${PROMO_3X2.map(() => '?').join(',')}) THEN '3x2' ELSE NULL END`, ...PROMO_3X2);
+  // Ofertas (3x2 en figuras y rebajas): se aplican una sola vez; después se editan desde la administración
+  if (!(await one("SELECT 1 AS x FROM configuracion WHERE clave='catalogo_ofertas'"))) {
+    await tx(async t => {
+      await t.run('UPDATE productos SET promo=NULL');
+      for (const n of PROMO_3X2) await t.run("UPDATE productos SET promo='3x2' WHERE nombre=?", n);
+      for (const [n, pct] of Object.entries(REBAJAS)) await t.run('UPDATE productos SET precio_antes=precio, precio=ROUND(precio*?,2) WHERE nombre=? AND precio_antes IS NULL', 1 - pct / 100, n);
+      await t.run("INSERT INTO configuracion(clave,valor,detalle) VALUES ('catalogo_ofertas',1,'Versión de las ofertas aplicadas al catálogo (uso interno)')");
+    });
+    console.log('Ofertas del catálogo aplicadas (3x2 en figuras y rebajas).');
+  }
   if (cambios) console.log(`Catálogo actualizado: ${cambios} producto(s).`);
 }
 

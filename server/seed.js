@@ -59,7 +59,11 @@ const RENOMBRES = [
   ['The Apothecary Diaries Vol. 4', 'Yahari Ore no Seishun Rabukome wa Machigatte Iru Vol. 17'], ['Is It Wrong to Try to Pick Up Girls in a Dungeon? Vol. 17', 'Shibou End o Kaihi Shita Gyaruge no Heroine Vol. 2'],
 ];
 // Mangas con la promo 3x2 (por cada 3 unidades con promo, la más barata es gratis)
-const PROMO_3X2 = ['Jujutsu Kaisen Vol. 20', 'Kaiju No. 8 Vol. 5', 'Dandadan Vol. 7', 'Sakamoto Days Vol. 6', 'Spy × Family Vol. 9', 'Go Toubun no Hanayome Vol. 3', 'Go Toubun no Hanayome Vol. 8', 'Black Clover Vol. 37'];
+const PROMO_3X2 = ['Anya Forger 1/7 Spy × Family', 'Yor Forger 1/7 Spy × Family', 'Marin Kitagawa 1/7 My Dress-Up Darling', 'Kurumi Tokisaki 1/7 Date A Live', 'Power 1/7 Chainsaw Man', 'Nezuko Kamado 1/8 Demon Slayer'];
+// Rebajas (% de descuento) en algunos productos de cada categoría: el precio guardado es el rebajado y precio_antes el original
+const REBAJAS = { 'Chainsaw Man Vol. 15': 20, 'Grand Blue Dreaming Vol. 3': 15, 'Ranma 1/2 Vol. 23': 25, 'Blue Lock Vol. 12': 10,
+  'Re:Zero Vol. 10': 20, 'Overlord Vol. 12': 15, 'KonoSuba Vol. 4': 25, 'Mushoku Tensei Vol. 7': 10,
+  'Megumin KonoSuba': 15, 'Asuna 1/7 Sword Art Online': 12, 'Hatsune Miku 1/7': 10, 'Satono Diamond Uma Musume': 15 };
 const ENVIO_GRATIS = 80; // compra mínima (USD) para envío gratis
 // Figuras en stock: [nombre, fabricante, licencia, precio, stock]
 [['Kurumi Tokisaki 1/7 Date A Live', 'Alter', 'Date A Live Licensed', 149, 5], ['Marin Kitagawa 1/7 My Dress-Up Darling', 'Kotobukiya', 'Aniplex Licensed', 135, 8],
@@ -125,6 +129,7 @@ async function seed(db, hashPassword) {
     ['envio_gratis_desde', ENVIO_GRATIS, 'Compra mínima para envío gratis (USD)'],
     ['max_cantidad_stock', 10, 'Máximo de unidades por compra en productos en stock'],
     ['max_cantidad_preventa', 5, 'Máximo de unidades por compra en preventas'],
+    ['catalogo_ofertas', 1, 'Versión de las ofertas aplicadas al catálogo (uso interno)'],
   ]) ins('INSERT INTO configuracion(clave,valor,detalle) VALUES (?,?,?)', k, v, d);
 
   // Categorías
@@ -190,6 +195,10 @@ async function seed(db, hashPassword) {
   COMENTARIOS.forEach(([pid, , r, t], i) => ins('INSERT INTO comentarios(producto_id,usuario_id,autor,calificacion,texto,fecha) VALUES (?,?,?,?,?,?)',
     pid, i + 1, USUARIOS[i], r, t, new Date(Date.UTC(2026, 8, 5 + i, 12, 0)).toISOString()));
 
+  // Ofertas: 3x2 en figuras elegidas y rebajas (al final, para que los pedidos de ejemplo conserven el precio de lista)
+  PROMO_3X2.forEach(n => ins("UPDATE productos SET promo='3x2' WHERE nombre=?", n));
+  Object.entries(REBAJAS).forEach(([n, pct]) => ins('UPDATE productos SET precio_antes=precio, precio=ROUND(precio*?,2) WHERE nombre=?', 1 - pct / 100, n));
+
   // Favoritos de ejemplo (usuario, producto)
   for (let i = 0; i < 15; i++) ins('INSERT INTO favoritos(usuario_id,producto_id) VALUES (?,?)', i + 1, 1 + ((i * 7) % 90));
 
@@ -203,4 +212,4 @@ const productosSemilla = () => [
 ];
 
 const filasSemilla = () => [...NUEVOS, ...EXTRA];
-module.exports = { seed, productosSemilla, filasSemilla, RENOMBRES, PROMO_3X2, ENVIO_GRATIS };
+module.exports = { seed, productosSemilla, filasSemilla, RENOMBRES, PROMO_3X2, REBAJAS, ENVIO_GRATIS };
