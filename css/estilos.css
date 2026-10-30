@@ -38,7 +38,7 @@ html{scroll-behavior:smooth}@media(prefers-reduced-motion:reduce){html{scroll-be
 .chips{display:flex;gap:8px;flex-wrap:wrap;list-style:none;padding:0;margin:18px 0 0}.chips li{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.5);border-radius:20px;padding:5px 14px;font-size:13px;font-weight:600}
 .hlogo{width:260px;height:260px;border-radius:50%;flex:none;box-shadow:0 12px 40px rgba(42,26,46,.35),0 0 0 6px rgba(255,255,255,.4)}
 .petal{position:absolute!important;opacity:.28;pointer-events:none}
-.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:36px}
+.tiles{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:36px}
 .tile{display:flex;align-items:center;gap:16px;text-align:left;border:1px solid var(--line);background:var(--card);border-radius:14px;padding:14px 18px;width:100%}
 .tile:hover{border-color:var(--acc);box-shadow:0 6px 20px rgba(214,32,79,.14)}.tile b{display:block;font-size:17px}.tile span{color:var(--mute);font-size:13px}
 .tw{width:64px;height:84px;border-radius:8px;background:var(--tint);display:grid;place-items:center;flex:none}
