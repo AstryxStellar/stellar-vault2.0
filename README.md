@@ -44,3 +44,54 @@ Monitor gratis en https://uptimerobot.com a `https://TU-LINK/api/health` cada 5 
 
 ### Usuarios de ejemplo
 `ana.perez@correo.com` / `Demo1234` (ya verificado).
+
+### Estructura del proyecto
+```
+index.html            Inicio            catalogo.html   Catálogo          producto.html  Detalle (?id=)
+favoritos.html        Favoritos         pedidos.html    Mis pedidos       pagar.html     Pago y confirmación
+ingresar.html         Iniciar sesión    perfil.html     Mi perfil         ayuda.html     Ayuda
+css/estilos.css       guía de estilo (colores, tipografía, componentes, modo oscuro)
+js/                   model.js · view.js · controller.js (MVC) y rules.js (validaciones y promo 3x2)
+server/               server.js (API), db.js, schema.sql, seed.js (datos), mail.js (correos)
+img/                  fotos: <producto>-frente.jpg (portadas y figuras) y <producto>-atras.jpg (figuras)
+tools/                paginas.js (genera las 9 páginas HTML con el mismo encabezado y pie) · portadas.js (descarga portadas) · generar-imagenes.js y prompts-figuras.md (figuras)
+```
+
+### Administración (otra aplicación): `TU-LINK/admin/`
+Se entra con la clave de la variable `ADMIN_CLAVE` (en Render → Environment; en tu compu, en `server/.env`).
+- **Productos (CRUD):** crear, editar, dar de baja (deja de verse en la tienda, se conserva el historial),
+  reactivar y eliminar (solo si nunca se vendió).
+- **Stock:** ingreso (+), devolución (+), salida por daño o pérdida (−) y ajuste por conteo. Cada cambio queda en la
+  tabla `movimientos_stock` con su motivo; la base no deja el stock en negativo.
+- **Pedidos y pago en tienda:** ver la orden de pedido (e imprimirla), registrar el pago en efectivo con el monto
+  recibido (calcula el cambio y rechaza un pago incompleto), marcar como entregado, cancelar con motivo
+  (no se presentó, pago incompleto, producto dañado…) o registrar una devolución. Al cancelar o devolver,
+  el trigger `trg_pedido_cancelado` devuelve el stock solo.
+
+### Dónde se guarda un pedido
+| Tabla | Qué guarda |
+|---|---|
+| `pedidos` | N.º de orden (`#SV-2026-XXXX`), cliente, entrega, subtotal, descuento, envío, total, estado, pagado, entregado |
+| `pedido_items` | cada producto del pedido con cantidad y precio unitario |
+| `pagos` | método (efectivo, DeUna botón o QR), estado del cobro y motivo (rechazo, cambio, devolución) |
+| `movimientos_stock` | entradas y salidas de inventario hechas desde la administración |
+
+### Página siempre activa
+En Render, el servidor se visita solo cada 10 minutos (usa `RENDER_EXTERNAL_URL`, que Render pone automáticamente),
+así el plan gratis no lo apaga. Como respaldo, configura UptimeRobot a `https://TU-LINK/api/health` cada 5 minutos.
+El plan gratis da 750 horas al mes: alcanza para tener un servicio encendido todo el mes.
+
+### Ofertas y envío
+- Envío gratis desde **$80** (tabla `configuracion`).
+- **Promo 3x2** en algunos mangas (columna `productos.promo`, lista `PROMO_3X2` en `server/seed.js`):
+  por cada 3 unidades con promo en el carrito, la más barata es gratis.
+- Al arrancar, el servidor actualiza solo el catálogo de una base ya creada (Turso): renombra los títulos
+  cambiados, agrega los nuevos, marca las ofertas y fija el envío gratis, **sin borrar** usuarios, pedidos ni comentarios.
+
+### Fotos de las figuras (frente y atrás)
+Las fotos viven en la carpeta `img/`, con el nombre `<producto>-frente.jpg` y `<producto>-atras.jpg`
+(por ejemplo `furina-1-7-genshin-impact-frente.jpg`). Al arrancar, el servidor las enlaza solo con cada producto.
+- Con la API de Gemini: `node tools/generar-imagenes.js --prueba` (una figura) y luego `node tools/generar-imagenes.js`.
+  Necesita la variable `GEMINI_API_KEY` y la API de imágenes de Gemini es de pago.
+- A mano en la app de Gemini: `node tools/generar-imagenes.js --prompts` crea `tools/prompts-figuras.md` con los textos.
+Después sube la carpeta `img/` a GitHub.
