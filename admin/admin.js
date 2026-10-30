@@ -35,7 +35,7 @@ async function salir() { try { await api('POST', '/api/admin/logout'); } catch {
 
 function tab(t) {
   TAB = t; document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.id === 't-' + t));
-  ({ res: resumen, prod: productos, ped: pedidos })[t]();
+  ({ res: resumen, prod: productos, packs: packs, ped: pedidos })[t]();
 }
 
 /* ---------- Resumen ---------- */
@@ -64,7 +64,7 @@ async function productos(recargar = true) {
   <span style="flex:1"></span><button class="btn" style="width:auto;padding:0 18px" onclick="formProducto()">+ Nuevo producto</button></div>
   <p class="sub" role="status">${list.length} de ${PRODS.length} productos</p>
   <div class="twrap"><table class="at"><thead><tr><th scope="col">Producto</th><th scope="col">Categoría</th><th scope="col" class="n">Precio</th><th scope="col" class="n">Stock</th><th scope="col" class="n">Vendidos</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead><tbody>
-  ${list.map(p => `<tr class="${p.activo ? '' : 'off'}"><td><b>${esc(p.nombre)}</b><br><small>${esc(p.autor)}</small></td><td>${esc(p.categoria)}</td><td class="n">${money(p.precio)}${p.promo ? '<br>' + pill('3x2', 'wa') : ''}</td>
+  ${list.map(p => `<tr class="${p.activo ? '' : 'off'}"><td><b>${esc(p.nombre)}</b><br><small>${esc(p.autor)}</small></td><td>${esc(p.categoria)}</td><td class="n">${p.precio_antes ? `<s>${money(p.precio_antes)}</s><br>` : ''}${money(p.precio)}${p.precio_antes ? '<br>' + pill('−' + Math.round((1 - p.precio / p.precio_antes) * 100) + '%', 'bad') : ''}</td>
    <td class="n">${p.preventa ? pill('Preventa', 'mu') : p.stock <= 3 ? pill(p.stock, 'bad') : p.stock}</td><td class="n">${p.vendidos}</td><td>${p.activo ? pill('Activo', 'ok') : pill('De baja', 'bad')}</td>
    <td><button class="sb" onclick="formStock(${p.id})" aria-label="Mover stock de ${esc(p.nombre)}">Stock</button><button class="sb" onclick="formProducto(${p.id})" aria-label="Editar ${esc(p.nombre)}">Editar</button>${p.activo
      ? `<button class="sb r" onclick="formBaja(${p.id})" aria-label="Dar de baja ${esc(p.nombre)}">Dar de baja</button>` : `<button class="sb" onclick="reactivar(${p.id})" aria-label="Reactivar ${esc(p.nombre)}">Reactivar</button>`}${p.vendidos ? '' : `<button class="sb r" onclick="eliminar(${p.id})" aria-label="Eliminar ${esc(p.nombre)}">Eliminar</button>`}</td></tr>`).join('')}
@@ -80,21 +80,22 @@ const fallo = m => { const b = $('#dmsg'); b.className = 'msg e'; b.textContent 
 const campo = (id, label, html) => `<div class="f"><label for="${id}">${label}</label>${html}</div>`;
 const inp = (id, v, extra = '') => `<input id="${id}" value="${esc(v)}" ${extra}>`;
 function formProducto(id) {
-  const p = PRODS.find(x => x.id === id) || { cat: 'm', nombre: '', autor: '', editorial: '', precio: '', stock: 0, preventa: '', promo: null, descripcion: '', color: '#be185d' };
+  const p = PRODS.find(x => x.id === id) || { cat: 'm', nombre: '', autor: '', editorial: '', precio: '', precio_antes: null, stock: 0, preventa: '', descripcion: '', color: '#be185d' };
   abrir(id ? 'Editar producto' : 'Nuevo producto', `<form id="fp" onsubmit="guardarProducto(event,${id || 0})" novalidate><div class="g2">
    ${campo('p_cat', 'Categoría', `<select id="p_cat">${CATS.map(c => `<option value="${c.codigo}" ${p.cat === c.codigo ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>`)}
    ${campo('p_nombre', 'Nombre', inp('p_nombre', p.nombre, 'required maxlength="120"'))}
    ${campo('p_autor', 'Autor o fabricante', inp('p_autor', p.autor, 'required'))}${campo('p_ed', 'Editorial o licencia', inp('p_ed', p.editorial, 'required'))}
-   ${campo('p_precio', 'Precio (USD)', inp('p_precio', p.precio, 'type="number" min="0.01" step="0.01" required inputmode="decimal"'))}
+   ${campo('p_precio', 'Precio actual (USD)', inp('p_precio', p.precio, 'type="number" min="0.01" step="0.01" required inputmode="decimal"'))}
+   ${campo('p_antes', 'Precio anterior (rebaja, opcional)', inp('p_antes', p.precio_antes || '', 'type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Déjalo vacío si no hay rebaja"'))}
    ${id ? campo('p_stock', 'Stock actual', inp('p_stock', p.stock, 'disabled aria-describedby="p_sh"') + '<small id="p_sh" style="display:block;color:var(--mute)">Cámbialo con el botón «Stock».</small>') : campo('p_stock', 'Stock inicial', inp('p_stock', p.stock, 'type="number" min="0" step="1" required inputmode="numeric"'))}
    ${campo('p_pre', 'Preventa (opcional)', inp('p_pre', p.preventa || '', 'placeholder="Ej.: Preventa oficial · mar. 2027"'))}
-   ${campo('p_promo', 'Oferta', `<select id="p_promo"><option value="">Sin oferta</option><option value="3x2" ${p.promo === '3x2' ? 'selected' : ''}>3x2</option></select>`)}</div>
+   </div>
    ${campo('p_desc', 'Descripción', `<textarea id="p_desc" required>${esc(p.descripcion)}</textarea>`)}</form>`,
     `<button class="sb" onclick="dlg().close()">Cancelar</button><button class="btn" style="width:auto;padding:0 20px" type="submit" form="fp">${id ? 'Guardar cambios' : 'Crear producto'}</button>`);
 }
 async function guardarProducto(e, id) {
   e.preventDefault();
-  const b = { cat: $('#p_cat').value, nombre: $('#p_nombre').value, autor: $('#p_autor').value, editorial: $('#p_ed').value, precio: $('#p_precio').value, stock: Number($('#p_stock').value), preventa: $('#p_pre').value, promo: $('#p_promo').value, descripcion: $('#p_desc').value };
+  const b = { cat: $('#p_cat').value, nombre: $('#p_nombre').value, autor: $('#p_autor').value, editorial: $('#p_ed').value, precio: $('#p_precio').value, precio_antes: $('#p_antes').value, stock: Number($('#p_stock').value), preventa: $('#p_pre').value, descripcion: $('#p_desc').value };
   try { id ? await api('PUT', '/api/admin/productos/' + id, b) : await api('POST', '/api/admin/productos', b); dlg().close(); toast(id ? 'Producto actualizado.' : 'Producto creado.'); productos(); }
   catch (x) { fallo(x.message); }
 }
@@ -131,6 +132,30 @@ function eliminar(id) {
 }
 async function borrar(id) { try { await api('DELETE', '/api/admin/productos/' + id); dlg().close(); toast('Producto eliminado.'); productos(); } catch (x) { fallo(x.message); } }
 
+/* ---------- Packs ---------- */
+let PACKS = [];
+async function packs() {
+  PACKS = (await api('GET', '/api/admin/packs')).packs;
+  $('#adm').innerHTML = `<h2 class="h2" tabindex="-1">Packs (${PACKS.length})</h2>
+  <p class="sub">Productos de una misma serie que se compran juntos con descuento. El carrito aplica el descuento solo cuando están todos los productos del pack.</p>
+  <div class="twrap"><table class="at"><thead><tr><th scope="col">Pack</th><th scope="col">Productos</th><th scope="col" class="n">Suma</th><th scope="col" class="n">Descuento</th><th scope="col" class="n">Precio pack</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead><tbody>
+  ${PACKS.map(k => `<tr class="${k.activo ? '' : 'off'}"><td><b>${esc(k.nombre)}</b></td><td>${k.items.map(i => esc(i.nombre) + (i.activo ? '' : ' ' + pill('de baja', 'bad'))).join('<br>')}</td><td class="n">${money(k.suma)}</td><td class="n">${k.pct}%</td><td class="n">${money(k.suma * (100 - k.pct) / 100)}</td>
+   <td>${k.activo ? pill('Activo', 'ok') : pill('Oculto', 'mu')}</td><td><button class="sb" onclick="formPack(${k.id})" aria-label="Editar ${esc(k.nombre)}">Editar</button></td></tr>`).join('')}</tbody></table></div>`;
+  $('#adm h2').focus();
+}
+function formPack(id) {
+  const k = PACKS.find(x => x.id === id);
+  abrir('Editar ' + esc(k.nombre), `<form id="fk" onsubmit="guardarPack(event,${id})" novalidate><div class="g2">
+   ${campo('k_pct', 'Descuento (%)', inp('k_pct', k.pct, 'type="number" min="1" max="60" step="1" required inputmode="numeric"'))}
+   ${campo('k_act', 'Estado', `<select id="k_act"><option value="1" ${k.activo ? 'selected' : ''}>Activo (se muestra en la tienda)</option><option value="0" ${k.activo ? '' : 'selected'}>Oculto</option></select>`)}</div></form>`,
+    `<button class="sb" onclick="dlg().close()">Cancelar</button><button class="btn" style="width:auto;padding:0 20px" type="submit" form="fk">Guardar</button>`);
+}
+async function guardarPack(e, id) {
+  e.preventDefault();
+  try { await api('PUT', '/api/admin/packs/' + id, { pct: Number($('#k_pct').value), activo: $('#k_act').value === '1' }); dlg().close(); toast('Pack actualizado.'); packs(); }
+  catch (x) { fallo(x.message); }
+}
+
 /* ---------- Pedidos ---------- */
 const estadoPedido = o => o.estado === 'cancelado' ? (o.pagado ? pill('Devuelto', 'bad') : pill('Cancelado', 'bad')) : !o.pagado ? pill(o.estado === 'pendiente_pago' ? 'Esperando DeUna' : 'Por cobrar', 'wa') : o.entregado ? pill('Entregado', 'ok') : pill('Pagado', 'ok');
 async function pedidos(recargar = true) {
@@ -162,7 +187,7 @@ async function verPedido(id) {
    <tr><th scope="row">Pago</th><td>${o.metodo_pago === 'deuna' ? 'DeUna' : 'Efectivo'} · ${esc(o.pago_estado || '')}${o.pago_fecha ? ' · ' + fecha(o.pago_fecha) : ''}</td></tr>${o.entregado ? `<tr><th scope="row">Entregado</th><td>${fecha(o.entregado)}</td></tr>` : ''}</tbody></table>
    <table style="margin-top:12px"><thead><tr><th scope="col">Producto</th><th scope="col" class="n">Cant.</th><th scope="col" class="n">P. unit.</th><th scope="col" class="n">Importe</th></tr></thead><tbody>
    ${o.items.map(i => `<tr><td>${esc(i.n)}</td><td class="n">${i.q}</td><td class="n">${money(i.pu)}</td><td class="n">${money(i.pu * i.q)}</td></tr>`).join('')}</tbody></table>
-   <table style="margin-top:8px;max-width:280px;margin-left:auto"><tbody>${o.descuento ? `<tr><td>Productos</td><td class="n">${money(bruto)}</td></tr><tr><td>Promo 3x2</td><td class="n">−${money(o.descuento)}</td></tr>` : ''}
+   <table style="margin-top:8px;max-width:280px;margin-left:auto"><tbody>${o.descuento ? `<tr><td>Productos</td><td class="n">${money(bruto)}</td></tr><tr><td>Descuento por packs</td><td class="n">−${money(o.descuento)}</td></tr>` : ''}
    <tr><td>Subtotal</td><td class="n">${money(o.subtotal)}</td></tr><tr><td>Envío</td><td class="n">${money(o.envio)}</td></tr><tr><th scope="row">Total</th><td class="n"><b>${money(o.total)}</b></td></tr></tbody></table>
    <p style="font-size:12px;color:var(--mute);margin:10px 0 0">Guardado en la base de datos: tabla <code>pedidos</code> (id ${o.id}), sus productos en <code>pedido_items</code> y el cobro en <code>pagos</code>.</p></div>
    <div class="noprint">${acciones}</div>`,
