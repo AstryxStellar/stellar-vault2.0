@@ -35,17 +35,32 @@ const preventa = i => `Preventa oficial · ${MESES[i % 12]} 2027`;
 const pal = i => PAL[i % PAL.length];
 const EXTRA = [];
 // Mangas en preventa: [nombre, autor, precio]
-[['One Piece Vol. 108', 'Eiichiro Oda', 12.9], ['Chainsaw Man Vol. 16', 'Tatsuki Fujimoto', 11.9], ['Jujutsu Kaisen Vol. 21', 'Gege Akutami', 12.5], ['Spy × Family Vol. 9', 'Tatsuya Endo', 12.5],
- ['Frieren Vol. 7', 'Kanehito Yamada', 13.2], ['Blue Lock Vol. 13', 'Muneyuki Kaneshiro', 12.9], ['Kaiju No. 8 Vol. 6', 'Naoya Matsumoto', 11.9], ['Dandadan Vol. 8', 'Yukinobu Tatsu', 12.5],
- ['Oshi no Ko Vol. 10', 'Aka Akasaka', 13.5], ['Sakamoto Days Vol. 7', 'Yuto Suzuki', 11.9], ['Vinland Saga Vol. 27', 'Makoto Yukimura', 14.5], ['Berserk Vol. 42', 'Kentaro Miura', 15.9],
- ['Haikyu!! Vol. 45', 'Haruichi Furudate', 10.9], ['My Hero Academia Vol. 40', 'Kohei Horikoshi', 11.5], ['Witch Hat Atelier Vol. 12', 'Kamome Shirahama', 13.9]]
-  .forEach(([n, a, p], i) => EXTRA.push([n, a, 'Edición en español', 'm', p, 99, ...pal(i), preventa(i), `${n}, de ${a}. Edición en español, disponible en preventa oficial.`]));
+[['One Piece Vol. 108', 'Eiichiro Oda', 12.9], ['Chanto Sukitte Ieru Ko Musou Vol. 1', 'Autor por confirmar', 11.9], ['Go Toubun no Hanayome Vol. 3', 'Negi Haruba', 11.9], ['Go Toubun no Hanayome Vol. 8', 'Negi Haruba', 11.9],
+ ['Spy × Family Vol. 9', 'Tatsuya Endo', 12.5], ['Frieren Vol. 7', 'Kanehito Yamada', 13.2], ['Watashi o Tabetai, Hitodenashi Vol. 1', 'Sai Naekawa', 12.5], ['Uma Musume: Cinderella Gray Vol. 21', 'Taiyo Kuzumi', 12.9],
+ ['Black Clover Vol. 37', 'Yūki Tabata', 11.5], ['Oshi no Ko Vol. 11', 'Aka Akasaka', 13.5], ['Sakamoto Days Vol. 7', 'Yuto Suzuki', 11.9], ['Vinland Saga Vol. 27', 'Makoto Yukimura', 14.5],
+ ['Berserk Vol. 42', 'Kentaro Miura', 15.9], ['Haikyu!! Vol. 45', 'Haruichi Furudate', 10.9], ['My Hero Academia Vol. 40', 'Kohei Horikoshi', 11.5], ['Witch Hat Atelier Vol. 12', 'Kamome Shirahama', 13.9]]
+  .forEach(([n, a, p], i) => EXTRA.push([n, a, 'Edición en español', 'm', p, 99, ...pal(i), preventa(i), `${n}${/confirmar/.test(a) ? '' : ', de ' + a}. Edición en español, disponible en preventa oficial.`]));
 // Novelas ligeras en preventa
-[['Sword Art Online Vol. 4', 'Reki Kawahara', 16.5], ['Re:Zero Vol. 11', 'Tappei Nagatsuki', 16.9], ['Overlord Vol. 13', 'Kugane Maruyama', 18.5], ['No Game No Life Vol. 7', 'Yuu Kamiya', 15.9],
- ['Spice and Wolf Vol. 9', 'Isuna Hasekura', 16], ['KonoSuba Vol. 5', 'Natsume Akatsuki', 15.5], ['Youkoso Jitsuryoku Vol. 26', 'Shōgo Kinugasa', 16], ['Date a Live Vol. 17', 'Koushi Tachibana', 17.5],
- ['Mushoku Tensei Vol. 8', 'Rifujin na Magonote', 15.5], ['Tensei shitara Slime Datta Ken Vol. 19', 'Fuse', 18], ['Make Heroine ga Oosugiru! Vol. 9', 'Takibi Amamori', 15.5], ['Otonari no Tenshi-sama Vol. 6', 'Saekisan', 16],
- ['Toradora! Vol. 2', 'Yuyuko Takemiya', 15.9], ['The Apothecary Diaries Vol. 4', 'Natsu Hyuuga', 16.5], ['Is It Wrong to Try to Pick Up Girls in a Dungeon? Vol. 17', 'Fujino Omori', 16.9]]
-  .forEach(([n, a, p], i) => EXTRA.push([n, a, 'Yen Press', 'n', p, 99, ...pal(i + 3), preventa(i + 2), `${n}, de ${a}. Novela ligera en edición en inglés de Yen Press, disponible en preventa oficial.`]));
+[['Jinsei Gyakuten Uwaki sare, Enzai wo Kiserareta Ore ga, Gakuen Ichi no Bishoujo ni Natsukareru Vol. 2', 'Autor por confirmar', 16.5], ['Re:Zero Vol. 11', 'Tappei Nagatsuki', 16.9],
+ ['Tokidoki Bosotto Russia-go de Dereru Tonari no Alya-san Vol. 7', 'SunSunSun', 16.5], ['86 Eighty Six Vol. 4', 'Asato Asato', 16.9], ['Goblin Slayer Vol. 10', 'Kumo Kagyu', 16.5],
+ ['Black Bullet Vol. 7', 'Shiden Kanzaki', 15.9], ['KonoSuba Vol. 5', 'Natsume Akatsuki', 15.5], ['Youkoso Jitsuryoku Vol. 28', 'Shōgo Kinugasa', 16], ['Magical Detective Kurumi Tokisaki Vol. 3', 'Yuichiro Higashide', 16.5],
+ ['Mushoku Tensei Vol. 8', 'Rifujin na Magonote', 15.5], ['Tensei shitara Slime Datta Ken Vol. 19', 'Fuse', 18], ['Make Heroine ga Oosugiru! Vol. 9', 'Takibi Amamori', 15.5],
+ ['Rakudai Kishi no Cavalry Vol. 19', 'Riku Misora', 16.5], ['Yahari Ore no Seishun Rabukome wa Machigatte Iru Vol. 17', 'Wataru Watari', 16.9], ['Shibou End o Kaihi Shita Gyaruge no Heroine Vol. 2', 'Autor por confirmar', 16],
+ ['Nageki no Bourei wa Intai Shitai Vol. 8', 'Tsukikage', 16.9]]
+  .forEach(([n, a, p], i) => EXTRA.push([n, a, 'Yen Press', 'n', p, 99, ...pal(i + 3), preventa(i + 2), `${n}${/confirmar/.test(a) ? '' : ', de ' + a}. Novela ligera en edición en inglés de Yen Press, disponible en preventa oficial.`]));
+
+// Títulos que se cambiaron en una base ya creada: [nombre anterior, nombre nuevo] (los aplica server.js al arrancar)
+const RENOMBRES = [
+  ['Chainsaw Man Vol. 16', 'Chanto Sukitte Ieru Ko Musou Vol. 1'], ['Jujutsu Kaisen Vol. 21', 'Go Toubun no Hanayome Vol. 3'], ['Blue Lock Vol. 13', 'Watashi o Tabetai, Hitodenashi Vol. 1'],
+  ['Kaiju No. 8 Vol. 6', 'Uma Musume: Cinderella Gray Vol. 21'], ['Dandadan Vol. 8', 'Black Clover Vol. 37'], ['Oshi no Ko Vol. 10', 'Oshi no Ko Vol. 11'],
+  ['Sword Art Online Vol. 4', 'Jinsei Gyakuten Uwaki sare, Enzai wo Kiserareta Ore ga, Gakuen Ichi no Bishoujo ni Natsukareru Vol. 2'], ['Overlord Vol. 13', 'Tokidoki Bosotto Russia-go de Dereru Tonari no Alya-san Vol. 7'],
+  ['No Game No Life Vol. 7', '86 Eighty Six Vol. 4'], ['Spice and Wolf Vol. 9', 'Goblin Slayer Vol. 10'], ['Youkoso Jitsuryoku Vol. 26', 'Youkoso Jitsuryoku Vol. 28'],
+  ['Date a Live Vol. 17', 'Magical Detective Kurumi Tokisaki Vol. 3'], ['Otonari no Tenshi-sama Vol. 6', 'Black Bullet Vol. 7'], ['Toradora! Vol. 2', 'Rakudai Kishi no Cavalry Vol. 19'],
+  ['The Apothecary Diaries Vol. 4', 'Yahari Ore no Seishun Rabukome wa Machigatte Iru Vol. 17'], ['Is It Wrong to Try to Pick Up Girls in a Dungeon? Vol. 17', 'Shibou End o Kaihi Shita Gyaruge no Heroine Vol. 2'],
+];
+// Mangas con la promo 3x2 (por cada 3 unidades con promo, la más barata es gratis)
+const PROMO_3X2 = ['Jujutsu Kaisen Vol. 20', 'Kaiju No. 8 Vol. 5', 'Dandadan Vol. 7', 'Sakamoto Days Vol. 6', 'Spy × Family Vol. 9', 'Go Toubun no Hanayome Vol. 3', 'Go Toubun no Hanayome Vol. 8', 'Black Clover Vol. 37'];
+const ENVIO_GRATIS = 80; // compra mínima (USD) para envío gratis
 // Figuras en stock: [nombre, fabricante, licencia, precio, stock]
 [['Kurumi Tokisaki 1/7 Date A Live', 'Alter', 'Date A Live Licensed', 149, 5], ['Marin Kitagawa 1/7 My Dress-Up Darling', 'Kotobukiya', 'Aniplex Licensed', 135, 8],
  ['Power 1/7 Chainsaw Man', 'Good Smile Company', 'MAPPA Licensed', 142, 6], ['Yor Forger 1/7 Spy × Family', 'Bandai Spirits', 'Spy × Family Licensed', 128, 9], ['Frieren 1/7 Sousou no Frieren', 'Good Smile Company', 'Madhouse Licensed', 156, 4]]
@@ -107,7 +122,7 @@ async function seed(db, hashPassword) {
   // Configuración
   for (const [k, v, d] of [
     ['envio_costo', 3.5, 'Costo de envío por Servientrega (USD)'],
-    ['envio_gratis_desde', 60, 'Compra mínima para envío gratis (USD)'],
+    ['envio_gratis_desde', ENVIO_GRATIS, 'Compra mínima para envío gratis (USD)'],
     ['max_cantidad_stock', 10, 'Máximo de unidades por compra en productos en stock'],
     ['max_cantidad_preventa', 5, 'Máximo de unidades por compra en preventas'],
   ]) ins('INSERT INTO configuracion(clave,valor,detalle) VALUES (?,?,?)', k, v, d);
@@ -150,7 +165,7 @@ async function seed(db, hashPassword) {
   // Pedidos de ejemplo (el stock se descuenta con los triggers)
   const stockProds = PRODS.filter(p => !p.pre && p.stock >= 8);
   const lugares = [['Pichincha', 'Quito'], ['Guayas', 'Guayaquil'], ['Azuay', 'Cuenca']];
-  const envioCosto = 3.5, gratis = 60;
+  const envioCosto = 3.5, gratis = ENVIO_GRATIS;
   for (let i = 0; i < 15; i++) {
     const items = [0, 1, 2].slice(0, 1 + (i % 3)).map(k => ({ ...stockProds[(i * 3 + k) % stockProds.length], q: 1 + ((i + k) % 2) }));
     const subtotal = Math.round(items.reduce((a, it) => a + it.precio * it.q, 0) * 100) / 100;
@@ -181,4 +196,11 @@ async function seed(db, hashPassword) {
   await db.batch(S, 'write');
 }
 
-module.exports = { seed };
+// Lista de productos de la semilla (nombre, categoría, autor/fabricante y editorial); la usa tools/generar-imagenes.js
+const productosSemilla = () => [
+  ...base.P.map(p => ({ nombre: p.name, cat: p.cat, autor: p.by, editorial: p.pub })),
+  ...[...NUEVOS, ...EXTRA].map(n => ({ nombre: n[0], cat: n[3], autor: n[1], editorial: n[2] })),
+];
+
+const filasSemilla = () => [...NUEVOS, ...EXTRA];
+module.exports = { seed, productosSemilla, filasSemilla, RENOMBRES, PROMO_3X2, ENVIO_GRATIS };

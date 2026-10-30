@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { openDb, hashPassword, checkPassword } = require('./db');
-const { validar } = require('../js/rules.js');
+const { validar, descuento3x2 } = require('../js/rules.js');
 const { enviarCorreo } = require('./mail');
 
 const ROOT = path.join(__dirname, '..');
@@ -123,8 +123,8 @@ async function productos() {
   const imgs = {};
   (await q('SELECT producto_id,url FROM imagenes_producto ORDER BY producto_id,orden')).forEach(i => (imgs[i.producto_id] ||= []).push(i.url));
   return (await q(`SELECT p.id AS id,c.codigo AS "cat",p.nombre AS "name",p.autor AS "by",p.editorial AS "pub",p.precio AS "price",p.stock AS "stock",p.color AS "c",p.tinte AS "tint",p.tinte_texto AS "tc",
-                   p.preventa AS "pre",p.destacado AS "dest",p.descripcion AS "desc"
-            FROM productos p JOIN categorias c ON c.id=p.categoria_id ORDER BY c.orden,p.id`))
+                   p.preventa AS "pre",p.destacado AS "dest",p.promo AS "promo",p.descripcion AS "desc"
+            FROM productos p JOIN categorias c ON c.id=p.categoria_id WHERE p.activo=1 ORDER BY c.orden,p.id`)) // los dados de baja no se muestran
     .map(p => ({ ...p, imgs: imgs[p.id] || [] }));
 }
 const comentarios = () => q('SELECT id,producto_id pid,usuario_id uid,autor n,calificacion r,texto t,fecha d FROM comentarios ORDER BY id');
@@ -178,14 +178,14 @@ async function aprobarPago(token) {
   const p = await pagoPorToken(token);
   if (!p || p.metodo === 'fisico') throw new HttpError(404, { error: 'Pago no encontrado.' });
   const n = p.numero.slice(1);
-  if (p.estado === 'aprobado') return { redirect: `/?pago=ok&n=${n}` };
-  if (p.estado !== 'pendiente') return { redirect: `/?pago=error&n=${n}&m=${p.estado === 'expirado' ? 'expirado' : 'cancelado'}` };
+  if (p.estado === 'aprobado') return { redirect: `/pagar.html?pago=ok&n=${n}` };
+  if (p.estado !== 'pendiente') return { redirect: `/pagar.html?pago=error&n=${n}&m=${p.estado === 'expirado' ? 'expirado' : 'cancelado'}` };
   await tx(async t => {
     await t.run("UPDATE pagos SET estado='aprobado',resuelto=? WHERE id=?", new Date().toISOString(), p.id);
     await t.run("UPDATE pedidos SET pagado=1,estado='confirmado' WHERE id=?", p.pedido_id);
   });
   enviarComprobante(p.pedido_id).catch(e => console.error('No se pudo enviar el comprobante:', e.message));
-  return { redirect: `/?pago=ok&n=${n}` };
+  return { redirect: `/pagar.html?pago=ok&n=${n}` };
 }
 async function rechazarPago(token, motivo) {
   await expirarPendientes();
@@ -193,34 +193,51 @@ async function rechazarPago(token, motivo) {
   if (!p || p.metodo === 'fisico') throw new HttpError(404, { error: 'Pago no encontrado.' });
   const n = p.numero.slice(1), m = motivo === 'saldo' ? 'saldo' : 'cancelado';
   if (p.estado === 'pendiente') await cerrarPago(p.id, p.pedido_id, m === 'saldo' ? 'rechazado' : 'cancelado', m === 'saldo' ? 'Saldo insuficiente en la cuenta DeUna.' : 'El cliente canceló el pago.');
-  return { redirect: p.estado === 'aprobado' ? `/?pago=ok&n=${n}` : `/?pago=error&n=${n}&m=${p.estado === 'expirado' ? 'expirado' : m}` };
+  return { redirect: p.estado === 'aprobado' ? `/pagar.html?pago=ok&n=${n}` : `/pagar.html?pago=error&n=${n}&m=${p.estado === 'expirado' ? 'expirado' : m}` };
 }
 
 async function enviarComprobante(pedidoId) {
   const p = await one(`SELECT pe.*,pr.nombre AS prov,ci.nombre AS city FROM pedidos pe LEFT JOIN provincias pr ON pr.id=pe.provincia_id LEFT JOIN ciudades ci ON ci.id=pe.ciudad_id WHERE pe.id=?`, pedidoId);
   const items = await q('SELECT pr.nombre n,i.cantidad q,i.precio_unitario pu FROM pedido_items i JOIN productos pr ON pr.id=i.producto_id WHERE i.pedido_id=?', pedidoId);
-  const pagado = !!p.pagado, unidades = items.reduce((a, i) => a + i.q, 0);
-  const fila = (k, v) => `<tr><td style="padding:9px 0;color:#6b5a6e;border-bottom:1px solid #f3e7ec">${k}</td><td style="padding:9px 0;text-align:right;font-weight:700;border-bottom:1px solid #f3e7ec">${v}</td></tr>`;
-  const detalle = items.map(i => `${escHtml(i.n)} × ${i.q} · ${dinero(i.pu * i.q)}`).join('<br>');
-  const entrega = p.entrega === 'retiro' ? 'Retiro en tienda (Quito)' : 'Envío por Servientrega<br><span style="font-weight:400;color:#6b5a6e">' + escHtml([p.direccion, p.city, p.prov].filter(Boolean).join(', ')) + '</span>';
-  const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;border:1px solid #f3d9e1;border-radius:14px;padding:24px;color:#2a1a2e">
-    <h2 style="color:#d6204f;margin:0 0 2px">STELLAR VAULT</h2>
-    <p style="margin:0 0 16px;color:#6b5a6e">Hola <b>${escHtml(p.nombre)}</b>, ${pagado ? 'recibimos tu pago. ¡Gracias por tu compra!' : 'registramos tu pedido. ¡Gracias por tu compra!'} Guarda este correo como constancia.</p>
-    <div style="border:1px solid #f3d9e1;border-radius:12px;padding:6px 18px 14px">
-      <table style="width:100%;border-collapse:collapse;font-size:14px"><tr><td style="padding:12px 0;font-size:17px;font-weight:700">Comprobante</td><td style="text-align:right;font-weight:700;font-size:12px;color:${pagado ? '#15803d' : '#b45309'}">${pagado ? 'PAGADO' : 'PAGO PENDIENTE'}</td></tr>
-      ${fila('N.º de pedido', escHtml(p.numero))}
-      ${fila('Fecha', new Date(p.fecha).toLocaleString('es-EC', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Guayaquil' }))}
-      ${fila('Cliente', escHtml(p.nombre))}
-      ${fila('Teléfono', escHtml(formatTel(p.telefono)))}
-      ${fila('Correo', escHtml(p.email))}
-      ${fila('Método de pago', p.metodo_pago === 'deuna' ? 'DeUna' : 'Pago en físico (efectivo)')}
-      ${fila('Entrega', entrega)}
-      ${fila('Artículos (' + unidades + ' unidad' + (unidades > 1 ? 'es' : '') + ')', detalle)}
-      ${fila('Subtotal', dinero(p.subtotal))}
-      ${fila(p.entrega === 'retiro' ? 'Retiro en tienda' : 'Envío', dinero(p.envio))}
-      <tr><td style="padding:12px 0 0;color:#6b5a6e">${pagado ? 'Total pagado' : 'Total a pagar'}</td><td style="padding:12px 0 0;text-align:right;font-weight:800;font-size:18px">${dinero(p.total)} USD</td></tr></table></div>
-    <p style="font-size:13px;color:#6b5a6e;margin:16px 0 0">¿Dudas con tu pedido? Escríbenos a <b>santiagoquiguango@hotmail.com</b> o llama al <b>096368732</b>.</p>
-    <p style="font-size:11px;color:#9a8a9d;margin:14px 0 0">Este documento es un comprobante de compra de demostración y no reemplaza una factura electrónica autorizada por el SRI.</p></div>`;
+  const pagado = !!p.pagado, desc = Number(p.descuento || 0);
+  const gris = '#6b5a6e', linea = '#f1e4ea';
+  const dato = (k, v) => `<tr><td style="padding:6px 0;color:${gris};font-size:13px;width:40%;vertical-align:top">${k}</td><td style="padding:6px 0;font-size:13px;font-weight:600;color:#2a1a2e">${v}</td></tr>`;
+  const total = (k, v, fuerte, color) => `<tr><td style="padding:${fuerte ? '12px' : '5px'} 0 0;font-size:${fuerte ? 16 : 14}px;color:${fuerte ? '#2a1a2e' : gris};font-weight:${fuerte ? 800 : 400}">${k}</td><td style="padding:${fuerte ? '12px' : '5px'} 0 0;text-align:right;font-size:${fuerte ? 20 : 14}px;font-weight:${fuerte ? 800 : 600};color:${color || '#2a1a2e'}">${v}</td></tr>`;
+  const filas = items.map(i => `<tr>
+      <td style="padding:10px 0;border-bottom:1px solid ${linea};font-size:14px;color:#2a1a2e">${escHtml(i.n)}<div style="font-size:12px;color:${gris}">${dinero(i.pu)} c/u</div></td>
+      <td style="padding:10px 0;border-bottom:1px solid ${linea};font-size:14px;text-align:center;color:${gris}">${i.q}</td>
+      <td style="padding:10px 0;border-bottom:1px solid ${linea};font-size:14px;text-align:right;font-weight:700;color:#2a1a2e">${dinero(i.pu * i.q)}</td></tr>`).join('');
+  const entrega = p.entrega === 'retiro' ? 'Retiro en tienda (Quito)' : 'Servientrega · ' + escHtml([p.direccion, p.city, p.prov].filter(Boolean).join(', '));
+  const fecha = new Date(p.fecha).toLocaleString('es-EC', { dateStyle: 'long', timeStyle: 'short', timeZone: 'America/Guayaquil' });
+  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f6eef2">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6eef2;padding:24px 12px;font-family:Arial,Helvetica,sans-serif"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden">
+  <tr><td style="background:#d6204f;padding:22px 28px;color:#ffffff">
+    <div style="font-size:20px;font-weight:800;letter-spacing:.04em">STELLAR VAULT</div>
+    <div style="font-size:13px;opacity:.9;margin-top:2px">Mangas · Novelas ligeras · Figuras</div></td></tr>
+  <tr><td style="padding:26px 28px 6px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+      <td style="font-size:22px;font-weight:800;color:#2a1a2e">Comprobante de ${pagado ? 'pago' : 'pedido'}</td>
+      <td align="right"><span style="display:inline-block;background:${pagado ? '#dcfce7' : '#fef3c7'};color:${pagado ? '#166534' : '#92400e'};font-size:12px;font-weight:800;border-radius:20px;padding:6px 12px">${pagado ? '✓ PAGADO' : 'PAGO PENDIENTE'}</span></td></tr></table>
+    <p style="font-size:14px;color:${gris};margin:10px 0 0;line-height:1.5">Hola <b style="color:#2a1a2e">${escHtml(p.nombre)}</b>, ${pagado ? 'recibimos tu pago.' : 'registramos tu pedido; pagarás en efectivo ' + (p.entrega === 'retiro' ? 'al retirarlo.' : 'al recibirlo.')} ¡Gracias por tu compra!</p></td></tr>
+  <tr><td style="padding:18px 28px 0">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fbf6f8;border-radius:12px;padding:10px 16px">
+      ${dato('N.º de pedido', escHtml(p.numero))}${dato('Fecha', fecha)}${dato('Teléfono', escHtml(formatTel(p.telefono)))}${dato('Correo', escHtml(p.email))}
+      ${dato('Pago', p.metodo_pago === 'deuna' ? 'DeUna' : 'Efectivo')}${dato('Entrega', entrega)}</table></td></tr>
+  <tr><td style="padding:22px 28px 0">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      <tr><th align="left" style="font-size:11px;color:${gris};letter-spacing:.06em;padding-bottom:6px;border-bottom:2px solid ${linea}">PRODUCTO</th><th style="font-size:11px;color:${gris};letter-spacing:.06em;padding-bottom:6px;border-bottom:2px solid ${linea};width:50px">CANT.</th><th align="right" style="font-size:11px;color:${gris};letter-spacing:.06em;padding-bottom:6px;border-bottom:2px solid ${linea};width:90px">IMPORTE</th></tr>
+      ${filas}</table></td></tr>
+  <tr><td style="padding:14px 28px 24px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${desc > 0 ? total('Productos', dinero(p.subtotal + desc)) + total('Promo 3x2', '−' + dinero(desc), false, '#b45309') : ''}
+      ${total('Subtotal', dinero(p.subtotal))}${total(p.entrega === 'retiro' ? 'Retiro en tienda' : 'Envío', p.envio ? dinero(p.envio) : 'Gratis')}
+      <tr><td colspan="2" style="border-bottom:1px solid ${linea};padding-top:10px"></td></tr>
+      ${total(pagado ? 'Total pagado' : 'Total a pagar', dinero(p.total) + ' USD', true, '#d6204f')}</table></td></tr>
+  <tr><td style="background:#fbf6f8;padding:18px 28px;font-size:12px;color:${gris};line-height:1.6">
+    ¿Dudas con tu pedido? Escríbenos a <b style="color:#2a1a2e">santiagoquiguango@hotmail.com</b> o llama al <b style="color:#2a1a2e">096368732</b>.<br>
+    <span style="color:#9a8a9d">Comprobante de compra de demostración; no reemplaza una factura electrónica autorizada por el SRI.</span></td></tr>
+</table></td></tr></table></body></html>`;
   await enviarCorreo({ to: p.email, subject: `${pagado ? 'Comprobante de pago' : 'Comprobante de pedido'} ${p.numero} · STELLAR VAULT`, html, enlace: '(comprobante)' });
 }
 
@@ -258,11 +275,13 @@ document.getElementById('cancelar').onclick=e=>{e.preventDefault();accion('recha
 
 const rutas = {
   'GET /api/health': async () => ({ ok: true, productos: (await one('SELECT count(*) AS n FROM productos')).n }),
-  'GET /api/bootstrap': async () => {
+  'GET /api/bootstrap': async ({ user }) => {
     const prov = {};
     (await q('SELECT p.nombre prov,c.nombre ciudad FROM ciudades c JOIN provincias p ON p.id=c.provincia_id ORDER BY p.nombre,c.id')).forEach(r => (prov[r.prov] ||= []).push(r.ciudad));
-    const [config, categorias, prods, reg, coms] = await Promise.all([cfg(), q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos(), reglas(), comentarios()]);
-    return { config, categorias, productos: prods, provincias: prov, reglas: reg, comentarios: coms, google: process.env.GOOGLE_CLIENT_ID || null };
+    // Con sesión, la misma respuesta trae el usuario y sus favoritos (una sola petición al abrir cada página).
+    const [config, categorias, prods, reg, coms, yo, favs] = await Promise.all([cfg(), q('SELECT codigo,nombre,plural FROM categorias ORDER BY orden'), productos(), reglas(), comentarios(),
+      user ? publico(user) : null, user ? favoritos(user.id) : []]);
+    return { config, categorias, productos: prods, provincias: prov, reglas: reg, comentarios: coms, google: process.env.GOOGLE_CLIENT_ID || null, usuario: yo, favoritos: favs };
   },
   'GET /api/comentarios': async () => ({ comentarios: await comentarios() }),
   'POST /api/comentarios': async ({ body, user }) => {
@@ -329,11 +348,14 @@ const rutas = {
     const cred = String(body.credential || '');
     if (cred.length < 20 || cred.length > 4000) throw new HttpError(422, { error: 'Respuesta de Google no válida.' });
     let info;
-    try {
-      const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(cred));
-      if (!r.ok) throw new Error('rechazado');
-      info = await r.json();
-    } catch { throw new HttpError(401, { error: 'No pudimos verificar tu cuenta de Google. Intenta de nuevo.' }); }
+    try { info = await verificarTokenGoogle(cred); }
+    catch {
+      try { // respaldo: preguntar a Google directamente
+        const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(cred));
+        if (!r.ok) throw new Error('rechazado');
+        info = await r.json();
+      } catch { throw new HttpError(401, { error: 'No pudimos verificar tu cuenta de Google. Intenta de nuevo.' }); }
+    }
     if (info.aud !== cid || String(info.email_verified) !== 'true' || !info.email) throw new HttpError(401, { error: 'Tu cuenta de Google no pudo verificarse.' });
     const email = String(info.email).toLowerCase();
     let nombre = String(info.name || email.split('@')[0]).trim().slice(0, 80);
@@ -342,10 +364,12 @@ const rutas = {
     if (!u) {
       const r = await run("INSERT INTO usuarios(nombre,email,password_hash,verificado,registro) VALUES (?,?,?,1,'google')", nombre, email, hashPassword(crypto.randomBytes(24).toString('hex')));
       u = { id: Number(r.lastInsertRowid), nombre, email };
-    } else await run('UPDATE usuarios SET verificado=1 WHERE id=?', u.id); // Google ya comprobó que el correo es suyo
-    const pic = String(info.picture || ''); // la foto de Google se sincroniza en cada inicio de sesión
-    if (pic.startsWith('https://') && pic.length < 500) await run('UPDATE usuarios SET foto_google=? WHERE id=?', pic, u.id);
-    return { token: await sesion(u.id), usuario: await publico(u) };
+    }
+    // Google ya comprobó que el correo es suyo; la foto de Google se sincroniza en cada inicio de sesión (una sola consulta)
+    const pic = String(info.picture || '');
+    await run('UPDATE usuarios SET verificado=1, foto_google=COALESCE(?,foto_google) WHERE id=?', pic.startsWith('https://') && pic.length < 500 ? pic : null, u.id);
+    const [token, usuario] = await Promise.all([sesion(u.id), publico(u)]);
+    return { token, usuario };
   },
   // Perfil: el usuario edita sus datos y su foto (la foto de Google se sincroniza al iniciar sesión con Google).
   'PUT /api/perfil': async ({ body, user }) => {
@@ -431,13 +455,15 @@ const rutas = {
     if (Object.keys(err).length) throw new HttpError(422, { errores: err });
     if (!['fisico', 'deuna'].includes(body.metodo)) throw new HttpError(422, { error: 'Método de pago no válido.' });
     if (!Array.isArray(body.items) || body.items.length > 50) throw new HttpError(422, { error: 'Tu carrito tiene demasiados productos distintos.' });
-    const items = await Promise.all((body.items || []).map(async i => ({ q: Number(i.q), prod: await one('SELECT id,precio FROM productos WHERE id=?', Number(i.id)) })));
+    const items = await Promise.all((body.items || []).map(async i => ({ q: Number(i.q), prod: await one('SELECT id,precio,promo FROM productos WHERE id=? AND activo=1', Number(i.id)) })));
     if (!items.length || items.some(i => !i.prod || !Number.isInteger(i.q) || i.q < 1)) throw new HttpError(422, { error: 'Tu carrito está vacío o tiene productos no válidos.' });
     // Un pedido nuevo reemplaza los pagos DeUna que el usuario dejó sin terminar (así no se retiene stock).
     for (const x of await q("SELECT pg.id,pg.pedido_id FROM pagos pg JOIN pedidos pe ON pe.id=pg.pedido_id WHERE pe.usuario_id=? AND pg.estado='pendiente' AND pg.metodo<>'fisico'", user.id))
       await cerrarPago(x.id, x.pedido_id, 'cancelado', 'Reemplazado por un pedido nuevo.');
     const c = await cfg();
-    const subtotal = Math.round(items.reduce((a, i) => a + i.prod.precio * i.q, 0) * 100) / 100;
+    // El subtotal ya incluye la promo 3x2 (la misma función que usa el carrito del navegador).
+    const descuento = descuento3x2(items.map(i => ({ precio: i.prod.precio, q: i.q, promo: i.prod.promo })));
+    const subtotal = Math.round((items.reduce((a, i) => a + i.prod.precio * i.q, 0) - descuento) * 100) / 100;
     const envio = dm === 'pick' || subtotal >= c.envio_gratis_desde ? 0 : c.envio_costo;
     const totalPed = Math.round((subtotal + envio) * 100) / 100;
     try {
@@ -445,12 +471,12 @@ const rutas = {
         let numero; do { numero = '#SV-2026-' + (1000 + crypto.randomInt(9000)); } while (await t.one('SELECT 1 AS x FROM pedidos WHERE numero=?', numero));
         const pr = dm === 'ship' ? await t.one('SELECT id FROM provincias WHERE nombre=?', String(d.prov)) : null;
         const ci = pr ? await t.one('SELECT id FROM ciudades WHERE provincia_id=? AND nombre=?', pr.id, String(d.city)) : null;
-        const r = await t.run(`INSERT INTO pedidos(numero,usuario_id,nombre,telefono,email,entrega,metodo_pago,provincia_id,ciudad_id,direccion,tipo_vivienda,edificio,piso,unidad,referencia,subtotal,envio,total,pagado)
-                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        const r = await t.run(`INSERT INTO pedidos(numero,usuario_id,nombre,telefono,email,entrega,metodo_pago,provincia_id,ciudad_id,direccion,tipo_vivienda,edificio,piso,unidad,referencia,subtotal,descuento,envio,total,pagado)
+                       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
           numero, user.id, String(d.name).trim(), String(d.tel).replace(/\D/g, ''), String(d.email).trim(), dm === 'pick' ? 'retiro' : 'envio', body.metodo,
           pr && pr.id, ci && ci.id, dm === 'ship' ? String(d.addr).trim() : null, dm === 'ship' ? (d.type || 'Casa') : 'Casa',
           dm === 'ship' ? d.edif || null : null, dm === 'ship' && d.type !== 'Casa' ? String(d.piso).trim() : null, dm === 'ship' && d.type !== 'Casa' ? String(d.unit).trim() : null,
-          dm === 'ship' ? d.ref || null : null, subtotal, envio, totalPed, 0);
+          dm === 'ship' ? d.ref || null : null, subtotal, descuento, envio, totalPed, 0);
         const pid = Number(r.lastInsertRowid);
         for (const i of items) await t.run('INSERT INTO pedido_items(pedido_id,producto_id,cantidad,precio_unitario) VALUES (?,?,?,?)', pid, i.prod.id, i.q, i.prod.precio);
         let pago = null;
@@ -472,8 +498,93 @@ const rutas = {
 };
 
 
-const ESTATICOS = { '/': 'index.html', '/index.html': 'index.html' };
-const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
+/* ---- Fotos de productos: carpeta img/ ----
+   Nombre de cada archivo: <nombre-del-producto-en-minusculas-con-guiones>-frente.jpg  y  ...-atras.jpg
+   Al arrancar, el servidor las enlaza solo con cada producto (tabla imagenes_producto). */
+const IMG_DIR = path.join(ROOT, 'img');
+const TIPOS_IMG = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp' };
+const slugNombre = n => String(n).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+async function sincronizarImagenes() {
+  if (!fs.existsSync(IMG_DIR)) return;
+  const archivos = new Set(fs.readdirSync(IMG_DIR));
+  let cambios = 0;
+  for (const p of await q('SELECT id,nombre FROM productos')) {
+    const s = slugNombre(p.nombre), vistas = [];
+    for (const v of ['frente', 'atras']) {
+      const f = ['jpg', 'jpeg', 'png', 'webp'].map(e => `${s}-${v}.${e}`).find(x => archivos.has(x));
+      if (f) vistas.push('img/' + f); else if (v === 'frente') break; // sin foto de frente no se usa la trasera
+    }
+    if (!vistas.length) continue;
+    const actual = (await q('SELECT url FROM imagenes_producto WHERE producto_id=? ORDER BY orden', p.id)).map(r => r.url);
+    if (JSON.stringify(actual) === JSON.stringify(vistas)) continue;
+    await tx(async t => {
+      await t.run('DELETE FROM imagenes_producto WHERE producto_id=?', p.id);
+      for (const [i, u] of vistas.entries()) await t.run('INSERT INTO imagenes_producto(producto_id,url,orden) VALUES (?,?,?)', p.id, u, i + 1);
+    });
+    cambios++;
+  }
+  if (cambios) console.log(`Fotos enlazadas con la base: ${cambios} producto(s).`);
+}
+
+/* ---- Actualiza el catálogo de una base ya creada (Turso) sin borrar usuarios, pedidos ni comentarios ----
+   Renombra los títulos reemplazados, agrega los nuevos, marca las ofertas 3x2 y fija el envío gratis. */
+/* ---- Verificación del inicio con Google ----
+   El token de Google viene firmado (JWT RS256). Se comprueba aquí con las claves públicas de Google,
+   que se descargan una vez y se guardan en memoria; así el inicio de sesión no espera otra consulta a Google. */
+let clavesGoogle = { claves: {}, vence: 0 };
+async function claveGoogle(kid) {
+  if (!clavesGoogle.claves[kid] || Date.now() > clavesGoogle.vence) {
+    const r = await fetch('https://www.googleapis.com/oauth2/v3/certs');
+    if (!r.ok) throw new Error('sin claves');
+    const edad = Number((/max-age=(\d+)/.exec(r.headers.get('cache-control') || '') || [])[1] || 3600);
+    clavesGoogle = { claves: Object.fromEntries((await r.json()).keys.map(k => [k.kid, crypto.createPublicKey({ key: k, format: 'jwk' })])), vence: Date.now() + edad * 1000 };
+  }
+  return clavesGoogle.claves[kid];
+}
+async function verificarTokenGoogle(cred) {
+  const [h, p, firma] = cred.split('.');
+  const cab = JSON.parse(Buffer.from(h, 'base64url')), info = JSON.parse(Buffer.from(p, 'base64url'));
+  const clave = cab.alg === 'RS256' && await claveGoogle(cab.kid);
+  if (!clave || !crypto.verify('RSA-SHA256', Buffer.from(h + '.' + p), clave, Buffer.from(firma, 'base64url'))) throw new Error('firma');
+  if (!['accounts.google.com', 'https://accounts.google.com'].includes(info.iss) || Number(info.exp) * 1000 < Date.now()) throw new Error('vencido');
+  return info;
+}
+
+async function actualizarCatalogo() {
+  const cols = async t => (await q(`PRAGMA table_info(${t})`)).map(c => c.name);
+  if (!(await cols('productos')).includes('promo')) await run("ALTER TABLE productos ADD COLUMN promo TEXT CHECK (promo IS NULL OR promo = '3x2')");
+  if (!(await cols('pedidos')).includes('descuento')) await run('ALTER TABLE pedidos ADD COLUMN descuento REAL NOT NULL DEFAULT 0 CHECK (descuento >= 0)');
+  const { filasSemilla, RENOMBRES, PROMO_3X2, ENVIO_GRATIS } = require('./seed');
+  await run("UPDATE configuracion SET valor=? WHERE clave='envio_gratis_desde'", ENVIO_GRATIS);
+  const filas = Object.fromEntries(filasSemilla().map(f => [f[0], f]));
+  let cambios = 0;
+  for (const [viejo, nuevo] of RENOMBRES) {
+    const p = await one('SELECT id FROM productos WHERE nombre=?', viejo);
+    if (!p || await one('SELECT 1 AS x FROM productos WHERE nombre=?', nuevo)) continue;
+    const f = filas[nuevo];
+    await tx(async t => {
+      await t.run('UPDATE productos SET nombre=?,autor=?,editorial=?,descripcion=? WHERE id=?', nuevo, f[1], f[2], f[10], p.id);
+      await t.run('DELETE FROM imagenes_producto WHERE producto_id=?', p.id); // la portada vieja ya no corresponde
+    });
+    cambios++;
+  }
+  for (const f of Object.values(filas)) {
+    if (await one('SELECT 1 AS x FROM productos WHERE nombre=?', f[0])) continue;
+    await run(`INSERT INTO productos(categoria_id,nombre,autor,editorial,precio,stock,color,tinte,tinte_texto,preventa,destacado,descripcion)
+               VALUES ((SELECT id FROM categorias WHERE codigo=?),?,?,?,?,?,?,?,?,?,0,?)`, f[3], f[0], f[1], f[2], f[4], f[5], f[6], f[7], f[8], f[9], f[10]);
+    cambios++;
+  }
+  await run(`UPDATE productos SET promo = CASE WHEN nombre IN (${PROMO_3X2.map(() => '?').join(',')}) THEN '3x2' ELSE NULL END`, ...PROMO_3X2);
+  if (cambios) console.log(`Catálogo actualizado: ${cambios} producto(s).`);
+}
+
+// Páginas de la tienda (cada una es un archivo HTML independiente) y la hoja de estilos.
+// Aplicación de administración (CRUD de productos, stock y pedidos): /admin/
+const ADMIN = require('./admin')({ q, one, run, tx, HttpError, dbError, limitar, enviarComprobante });
+Object.assign(rutas, ADMIN.rutas);
+const PAGINAS_HTML = ['index', 'catalogo', 'producto', 'favoritos', 'pedidos', 'pagar', 'ingresar', 'perfil', 'ayuda'];
+const ESTATICOS = { '/': 'index.html', '/css/estilos.css': 'css/estilos.css', '/admin': 'admin/index.html', '/admin/': 'admin/index.html', '/admin/admin.js': 'admin/admin.js', ...Object.fromEntries(PAGINAS_HTML.map(p => ['/' + p + '.html', p + '.html'])) };
+const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
 
 function leerCuerpo(req) {
   return new Promise((ok, fail) => {
@@ -514,6 +625,13 @@ const server = http.createServer(async (req, res) => {
       if (!p || p.metodo === 'fisico') return enviar(res, 404, paginaPago('No encontrado', '<div class="card"><h1 style="margin-top:0">Pago no encontrado</h1><p>Este enlace de pago no existe.</p><a class="btn" href="/">IR A LA TIENDA</a></div>'), 'text/html; charset=utf-8');
       return enviar(res, 200, p.estado !== 'pendiente' ? paginaEstadoPago(p) : mp[2] ? paginaApp(p) : paginaPasarela(p), 'text/html; charset=utf-8');
     }
+    const mi = url.pathname.match(/^\/img\/([a-z0-9][a-z0-9._-]*\.(?:png|jpe?g|webp))$/);
+    if (mi) {
+      const f = path.join(IMG_DIR, mi[1]);
+      if (!fs.existsSync(f)) return enviar(res, 404, 'No encontrado', 'text/plain; charset=utf-8');
+      res.writeHead(200, { 'Content-Type': TIPOS_IMG[path.extname(f).toLowerCase()], 'Cache-Control': 'public, max-age=3600', 'X-Content-Type-Options': 'nosniff' });
+      return res.end(fs.readFileSync(f));
+    }
     const m = url.pathname.match(/^\/js\/(model|view|controller|rules)\.js$/);
     const file = ESTATICOS[url.pathname] || (m && 'js/' + m[1] + '.js');
     if (!file) return enviar(res, 404, 'No encontrado', 'text/plain; charset=utf-8');
@@ -528,6 +646,13 @@ const server = http.createServer(async (req, res) => {
 (async () => {
   db = await openDb();
   D = mk(db);
+  await ADMIN.preparar();
+  await actualizarCatalogo();
+  if (process.env.GOOGLE_CLIENT_ID) claveGoogle('').catch(() => {}); // deja las claves de Google listas
+  await sincronizarImagenes();
   server.listen(PORT, '0.0.0.0', () => console.log(`STELLAR VAULT en http://localhost:${PORT}`));
+  // Render (plan gratis) apaga la tienda tras 15 min sin visitas: se visita a sí misma cada 10 min para seguir activa.
+  const publica = process.env.RENDER_EXTERNAL_URL;
+  if (publica) setInterval(() => fetch(publica + '/api/health').catch(() => {}), 10 * 60000);
 })().catch(e => { console.error('No se pudo iniciar la base de datos:', e); process.exit(1); });
 
