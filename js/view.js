@@ -182,7 +182,7 @@ function detail(){
  <button class="btn alt" data-fav="${p.id}" onclick="toggleFavUI(${p.id})" aria-pressed="${FAV.has(p.id)}" style="margin-top:10px">${FAV.has(p.id)?"♥ Quitar de favoritos":"♡ Añadir a favoritos"}</button>
  <div class="foot" style="margin-top:12px">🔒 Pago seguro · Conexión cifrada TLS</div></aside></div>
  <section class="sec" aria-labelledby="hd"><h2 id="hd">Descripción</h2><p style="max-width:720px">${D[p.id]}</p></section>
- <section class="sec" aria-labelledby="hs"><h2 id="hs">Detalles del producto</h2><table class="sp"><caption class="sr">Detalles del producto</caption><tbody>${rows.map(([a,b])=>`<tr><th scope="row">${a}</th><td>${b}</td></tr>`).join("")}</tbody></table></section>
+ <section class="sec" aria-labelledby="hs"><h2 id="hs">Detalles del producto</h2><dl class="spl">${rows.map(([a,b])=>`<div class="spr"><dt>${a}</dt><dd>${b}</dd></div>`).join("")}</dl></section>
  <section class="sec" aria-labelledby="ho"><h2 id="ho" tabindex="-1">Comentarios${cl.length?` (${cl.length})`:""}</h2>
  ${USER?`<form class="cform" onsubmit="addCom(event,${p.id})" novalidate>
  <p style="margin:0">Comentando como <b>${esc(userName())}</b></p>
