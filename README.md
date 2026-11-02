@@ -74,7 +74,7 @@ Se entra con la clave de la variable `ADMIN_CLAVE` (en Render → Environment; e
 |---|---|
 | `pedidos` | N.º de orden (`#SV-2026-XXXX`), cliente, entrega, subtotal, descuento, envío, total, estado, pagado, entregado |
 | `pedido_items` | cada producto del pedido con cantidad y precio unitario |
-| `pagos` | método (efectivo, DeUna botón o QR), estado del cobro y motivo (rechazo, cambio, devolución) |
+| `pagos` | método (efectivo o DeUna en línea), estado del cobro y motivo (rechazo, cambio, devolución) |
 | `movimientos_stock` | entradas y salidas de inventario hechas desde la administración |
 
 ### Seguridad y pruebas
