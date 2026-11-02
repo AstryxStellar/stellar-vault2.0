@@ -86,12 +86,12 @@ function fb(el,id,i,w){el.outerHTML=slideCss(P[id],i,w)} // si la imagen no carg
 function cover(p,w=100){return p.imgs&&p.imgs[0]?img(p,0,w,"Portada de "+esc(p.name)):coverCss(p,w)}
 function card(p){
  const inCart=cart[p.id]||0, out=!p.pre&&inCart>=p.stock;
- const st=p.pre?`<div class="stock p">● ${p.pre}</div>`:p.stock<=3?`<div class="stock w">● Últimas ${p.stock} unidades</div>`:`<div class="stock">● En stock · ${p.stock} unidades</div>`;
+ const st=p.pre?`<div class="stock p">● ${p.pre}</div>`:p.stock<=0?`<div class="stock w">● Agotado por ahora</div>`:p.stock<=3?`<div class="stock w">● Últimas ${p.stock} unidades</div>`:`<div class="stock">● En stock · ${p.stock} unidades</div>`;
  const fv=FAV.has(p.id);
  return `<article class="prod" style="--tint:${p.tint};--tc:${p.tc};--c:${p.c}"><button class="fav${fv?" on":""}" data-fav="${p.id}" onclick="toggleFavUI(${p.id})" aria-pressed="${fv}" aria-label="${fv?"Quitar de favoritos":"Añadir a favoritos"}: ${esc(p.name)}">${fv?"♥":"♡"}</button>${p.was?`<span class="ribbon dsc">🏷️ −${pctOff(p)}%</span>`:""}<a class="thumb" href="${prodUrl(p.id)}" tabindex="-1" aria-hidden="true">${cover(p)}</a>
  <span class="tag">${CAT[p.cat]}</span><h3><a href="${prodUrl(p.id)}">${p.name}</a></h3><p>${p.by}</p><p>${p.pub}</p>${st}${inCart?`<div class="stock" style="color:var(--acc);margin-top:-6px">✓ ${inCart} en tu carrito</div>`:""}
  <div class="price">${priceHtml(p)} USD<small>IVA incl.</small></div>${packsOf(p.id).length?packMini(packsOf(p.id)[0],p.id):""}
- <button class="btn" ${out?"disabled":""} data-add="${p.id}" onclick="add(${p.id})">${out?"Máximo en carrito":p.pre?"Reservar en preventa":"Añadir al carrito"}</button></article>`}
+ <button class="btn" ${out?"disabled":""} data-add="${p.id}" onclick="add(${p.id})">${p.stock<=0&&!p.pre?"Agotado":out?"Máximo en carrito":p.pre?"Reservar en preventa":"Añadir al carrito"}</button></article>`}
 let tt;function toast(m,lbl,fn,kind){if(typeof LEAVING!=="undefined"&&LEAVING){SS.set("sv_toast",[m,lbl,fn,kind]);return} // el aviso se muestra en la página siguiente
  const t=$("#toast");t.className="toast "+(kind||"ok");t.innerHTML=`<span aria-hidden="true" class="ti">${kind==="del"?"🗑":kind==="warn"?"🔒":"✓"}</span><span>${esc(m)}</span>${lbl===null?"":`<button onclick="${fn||"openCart()"}">${lbl||"Ver carrito"}</button>`}`;t.classList.add("on");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("on"),5000)}
 // Líneas del resumen con el descuento de cada pack aplicado (solo si hay)
@@ -176,9 +176,9 @@ function detail(){
  <h2 style="font-size:16px;margin:18px 0 4px">Acerca de este artículo</h2><ul>${bul.map(b=>`<li>${b}</li>`).join("")}</ul></section>
  <aside class="panel buy" aria-label="Comprar"><div class="big-p">${priceHtml(p)}</div>${packsOf(p.id).map(k=>`<div class="promo-box">📦 <b>${esc(k.name)}</b> · −${k.pct}%<br>${k.ids.map(i=>esc(P[i].name)).join(" + ")}<br><b>${money(packPrice(k))}</b> <s class="was">${money(packSum(k))}</s> · ahorras ${money(packSum(k)-packPrice(k))}<br><button class="btn" style="margin-top:8px" onclick="addPack(${k.id})">Añadir pack al carrito</button></div>`).join("")}
  <div style="font-size:13px;color:var(--mute);margin:4px 0 10px"><span style="display:block">${p.price>=CONFIG.envio_gratis_desde?"Envío gratis":"Envío desde "+SHIPC()+" · gratis desde "+FREE()+" USD"} por Servientrega (solo Ecuador)</span><span style="display:block">O retira gratis en tienda (Quito)</span></div>
- <div class="stock ${p.pre?"p":p.stock<=3?"w":""}" style="margin:0 0 8px">● ${p.pre||(p.stock<=3?"Últimas "+p.stock+" unidades":"En stock")}</div>
+ <div class="stock ${p.pre?"p":p.stock<=3?"w":""}" style="margin:0 0 8px">● ${p.pre||(p.stock<=0?"Agotado por ahora":p.stock<=3?"Últimas "+p.stock+" unidades":"En stock")}</div>
  ${rm>0?`<label for="qty" style="font-weight:700;font-size:13px;display:block">Cantidad</label><select id="qty">${Array.from({length:mx},(_,i)=>`<option>${i+1}</option>`).join("")}</select>
- <button class="btn" data-add="buy" onclick="add(${p.id},+$('#qty').value)">${p.pre?"Reservar en preventa":"Añadir al carrito"}</button><button class="btn alt" onclick="buy(${p.id})">Comprar ahora</button>`:`<p style="font-weight:600">Ya tienes el máximo disponible en tu carrito.</p><button class="btn" onclick="openCart()">Ver carrito</button>`}
+ <button class="btn" data-add="buy" onclick="add(${p.id},+$('#qty').value)">${p.pre?"Reservar en preventa":"Añadir al carrito"}</button><button class="btn alt" onclick="buy(${p.id})">Comprar ahora</button>`:`<p style="font-weight:600">${p.stock<=0&&!p.pre?"Este producto está agotado por ahora.":"Ya tienes el máximo disponible en tu carrito."}</p>${p.stock<=0&&!p.pre?"":`<button class="btn" onclick="openCart()">Ver carrito</button>`}`}
  <button class="btn alt" data-fav="${p.id}" onclick="toggleFavUI(${p.id})" aria-pressed="${FAV.has(p.id)}" style="margin-top:10px">${FAV.has(p.id)?"♥ Quitar de favoritos":"♡ Añadir a favoritos"}</button>
  <div class="foot" style="margin-top:12px">🔒 Pago seguro · Conexión cifrada TLS</div></aside></div>
  <section class="sec" aria-labelledby="hd"><h2 id="hd">Descripción</h2><p style="max-width:720px">${D[p.id]}</p></section>
