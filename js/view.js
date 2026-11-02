@@ -70,10 +70,10 @@ function catalog(){
  const from=(catPage-1)*PAGE_SIZE,part=(packMode?plist:list).slice(from,from+PAGE_SIZE);
  $("#app").innerHTML=`<h1 class="h2" id="cat" tabindex="-1">Catálogo de artículos</h1><p class="sub">${N?`Mostrando ${from+1}–${from+part.length} de ${N} ${packMode?"pack":"producto"}${N===1?"":"s"}`:"Sin resultados"}</p>
  <div class="layout"><aside class="panel"><h2>Filtros</h2><small>Refina tu búsqueda</small>
- <div class="lbl">CATEGORÍAS</div>
- ${CATS().map(([k,t])=>`<label class="opt"><input type="checkbox" ${F.cats.has(k)?"checked":""} onchange="togCat('${k}')"><span>${t}</span><span>${cnt(k)}</span></label>`).join("")}
- <div class="lbl">DISPONIBILIDAD</div>
- ${[["all","Todos",P.length],["stock","En stock",P.filter(p=>!p.pre).length],["pre","Preventa oficial",P.filter(p=>p.pre).length],["pack","📦 Packs",PACKS.length],["rebaja","🏷️ Rebajas",P.filter(p=>p.was).length]].map(([k,t,n])=>`<label class="opt"><input type="radio" name="av" ${F.av===k?"checked":""} onchange="F.av='${k}';render()"><span>${t}</span><span>${n}</span></label>`).join("")}
+ <fieldset class="fs"><legend class="lbl">CATEGORÍAS</legend>
+ ${CATS().map(([k,t])=>`<label class="opt" for="fc_${k}"><input type="checkbox" id="fc_${k}" ${F.cats.has(k)?"checked":""} onchange="togCat('${k}')"><span>${t}</span><span>${cnt(k)}</span></label>`).join("")}</fieldset>
+ <fieldset class="fs"><legend class="lbl">DISPONIBILIDAD</legend>
+ ${[["all","Todos",P.length],["stock","En stock",P.filter(p=>!p.pre).length],["pre","Preventa oficial",P.filter(p=>p.pre).length],["pack","📦 Packs",PACKS.length],["rebaja","🏷️ Rebajas",P.filter(p=>p.was).length]].map(([k,t,n])=>`<label class="opt" for="fa_${k}"><input type="radio" id="fa_${k}" name="av" ${F.av===k?"checked":""} onchange="F.av='${k}';render()"><span>${t}</span><span>${n}</span></label>`).join("")}</fieldset>
  <button class="reset" onclick="F={cats:new Set(['m','n','f']),av:'all',q:''};$('#q').value='';render()">Restablecer filtros</button>
  <div class="note">Envío gratis desde ${FREE()} USD</div></aside>
  <section>${packMode?(N?`<div class="grid packs">${part.map(packCard).join("")}</div>${pager(N,catPage,PAGE_SIZE,"cat")}`:`<div class="panel empty">No encontramos packs con esos filtros.</div>`):list.length?CATS().filter(([k])=>part.some(p=>p.cat===k)).map(([k,t])=>{const g=part.filter(p=>p.cat===k),tot=list.filter(p=>p.cat===k).length;return `<section class="cgroup" aria-labelledby="cg${k}"><h2 class="cgh" id="cg${k}">${t} <span>${tot} título${tot===1?"":"s"}</span></h2><div class="grid">${g.map(card).join("")}</div></section>`}).join("")+pager(list.length,catPage,PAGE_SIZE,"cat"):`<div class="panel empty">No encontramos productos con esos filtros.</div>`}</section></div>`;
@@ -164,7 +164,7 @@ function detail(){
  const bul=f?[`Figura coleccionable${sc?" a escala "+sc:""}.`,`${/^Serie/.test(p.pub)?p.pub:"Licencia: "+p.pub}.`,p.pre?`Preventa oficial: ${p.pre.split("· ")[1]}.`:`Stock limitado: ${p.stock} unidades.`]:[`${p.cat==="m"?"Tomo individual":"Volumen de novela ligera"} · ${p.pub}.`,`Autor: ${p.by}.`,"Precio con IVA incluido. Envío gratis desde "+FREE()+" USD."];
  const rows=[[f?"Fabricante":"Autor",p.by],[f?"Licencia":"Editorial",p.pub],["Categoría",CAT[p.cat]],["Formato",f?(sc?`Figura a escala ${sc}`:"Figura coleccionable"):p.cat==="m"?"Tomo (manga)":"Novela ligera"],...(f?[]:[["Idioma",/inglés|Yen|Seven/i.test(p.pub)?"Inglés":/español/i.test(p.pub)?"Español":"Por confirmar"]]),["Disponibilidad",p.pre||(p.stock+" unidades")],["Precio",money(p.price)+" USD (IVA incl.)"]];
  const rel=P.filter(x=>x.cat===p.cat&&x.id!==p.id).slice(0,3);
- $("#app").innerHTML=`<nav class="crumb" aria-label="Ruta"><button onclick="go('home')">Inicio</button> › <button onclick="go('cat')">Catálogo</button> › <button onclick="setCat('${p.cat}')">${CATP[p.cat]}</button> › <span aria-current="page">${p.name}</span></nav>
+ $("#app").innerHTML=`<nav class="crumb" aria-label="Ruta"><ol><li><a href="index.html">Inicio</a></li><li><a href="catalogo.html">Catálogo</a></li><li><a href="catalogo.html?cat=${p.cat}">${CATP[p.cat]}</a></li><li aria-current="page">${p.name}</li></ol></nav>
  <button class="link back" style="margin-left:0" onclick="go('cat')">← Volver al catálogo</button>
  <div class="pd" style="--tint:${p.tint};--tc:${p.tc};--c:${p.c}">
  <section aria-label="Galería de imágenes"><div class="gal">${n>1?`<div class="th" role="group" aria-label="Vistas del producto">${Array.from({length:n},(_,i)=>i).map(i=>`<button aria-pressed="${i===GI}" aria-label="${lab(p,i)}" onclick="pick(${i})">${slide(p,i,34)}</button>`).join("")}</div>`:""}
