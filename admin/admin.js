@@ -34,7 +34,7 @@ async function entrar(e) {
 async function salir() { try { await api('POST', '/api/admin/logout'); } catch {} TK = null; sessionStorage.removeItem('sv_admin'); login(); }
 
 function tab(t) {
-  TAB = t; document.querySelectorAll('#tabs button').forEach(b => b.setAttribute('aria-selected', b.id === 't-' + t));
+  TAB = t; document.querySelectorAll('#tabs button').forEach(b => b.id === 't-' + t ? b.setAttribute('aria-current', 'page') : b.removeAttribute('aria-current'));
   ({ res: resumen, prod: productos, packs: packs, ped: pedidos })[t]();
 }
 
