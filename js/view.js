@@ -10,7 +10,7 @@ function setBg(on){$("header").inert=on;$("#app").inert=on}
 function openLayer(ov,box,target){if(!ov.classList.contains("on"))lastFocus=document.activeElement;ov.classList.add("on");setBg(true);(target||box.querySelector("button,input:not([disabled])")||box).focus()}
 function closeLayer(ov){ov.classList.remove("on");if(!document.querySelector(".ov.on")){setBg(false);if(lastFocus&&document.contains(lastFocus))lastFocus.focus()}}
 $("#hlogo").src=LOGO;$("#flogo").src=LOGO;document.head.insertAdjacentHTML("beforeend",`<link rel="icon" href="${LOGO}">`);
-function header(){const ub=$("#userBtn");ub.innerHTML=USER?avatarHtml(ME,24)+"<span>"+esc((userName()||"Mi cuenta").split(" ")[0])+"</span>":"Ingresar";ub.setAttribute("aria-label",USER?"Mi perfil":"Iniciar sesión o crear cuenta");ub.setAttribute("aria-expanded","false");ub.onclick=e=>{e.stopPropagation();USER?toggleUserMenu():go("login")};fillUserMenu();const n=count();$("#cartBtn").textContent=`Carrito: ${n} ${n===1?"ítem":"ítems"}`}
+function header(){const ub=$("#userBtn");ub.innerHTML=USER?avatarHtml(ME,24)+"<span>"+esc((userName()||"Mi cuenta").split(" ")[0])+"</span>":"Ingresar";ub.setAttribute("aria-label",USER?"Mi perfil":"Iniciar sesión o crear cuenta");if(USER){ub.setAttribute("aria-haspopup","menu");ub.setAttribute("aria-controls","uMenu");ub.setAttribute("aria-expanded","false")}else{ub.removeAttribute("aria-haspopup");ub.removeAttribute("aria-controls");ub.removeAttribute("aria-expanded")}ub.onclick=e=>{e.stopPropagation();USER?toggleUserMenu():go("login")};fillUserMenu();const n=count();$("#cartBtn").textContent=`Carrito: ${n} ${n===1?"ítem":"ítems"}`}
 function help(){
  const q=(t,b)=>`<details class="panel"><summary>${t}</summary><div style="margin-top:10px;color:var(--mute)">${b}</div></details>`;
  $("#app").innerHTML=`<h1 class="h2" tabindex="-1">Ayuda</h1><p class="sub">Respuestas rápidas para comprar en STELLAR VAULT.</p><div class="helpg">
@@ -61,12 +61,12 @@ function home(){
  <h2 class="h2" style="margin:8px 0 16px">Selección de la tienda</h2><div class="grid">${P.filter(p=>p.dest).map(card).join("")}</div>
  <div class="cta"><button class="btn" style="width:auto;padding:0 28px" onclick="go('cat')">Ver todo el catálogo</button></div>`}
 function catalog(){
- const list=P.filter(p=>F.cats.has(p.cat)&&(F.av==="all"||(F.av==="stock"?!p.pre:F.av==="pack"?packsOf(p.id).length>0:F.av==="rebaja"?!!p.was:!!p.pre))&&(p.name+p.by+CAT[p.cat]).toLowerCase().includes(F.q.toLowerCase()));
+ const list=P.filter(p=>F.cats.has(p.cat)&&(F.av==="all"||(F.av==="stock"?!p.pre:F.av==="pack"?packsOf(p.id).length>0:F.av==="rebaja"?!!p.was:!!p.pre))&&(p.name+p.by+CAT[p.cat]).toLowerCase().includes(F.q.trim().toLowerCase()));
  list.sort((a,b)=>"mnf".indexOf(a.cat)-"mnf".indexOf(b.cat)||a.id-b.id);
  const cnt=c=>P.filter(p=>p.cat===c).length;
  const key=[...F.cats].join()+"|"+F.av+"|"+F.q;if(key!==catKey){catKey=key;catPage=1}
- const packMode=F.av==="pack",plist=packMode?PACKS.filter(k=>k.ids.some(i=>F.cats.has(P[i].cat))&&(k.name+" "+k.ids.map(i=>P[i].name+P[i].by).join(" ")).toLowerCase().includes(F.q.toLowerCase())):[],N=packMode?plist.length:list.length; // con el filtro «Packs» se listan los packs, no los productos sueltos
- const pages=Math.max(1,Math.ceil(N/PAGE_SIZE));if(catPage>pages)catPage=pages;
+ const packMode=F.av==="pack",plist=packMode?PACKS.filter(k=>k.ids.some(i=>F.cats.has(P[i].cat))&&(k.name+" "+k.ids.map(i=>P[i].name+P[i].by).join(" ")).toLowerCase().includes(F.q.trim().toLowerCase())):[],N=packMode?plist.length:list.length; // con el filtro «Packs» se listan los packs, no los productos sueltos
+ const pages=Math.max(1,Math.ceil(N/PAGE_SIZE));catPage=Math.min(Math.max(1,Math.floor(+catPage)||1),pages);
  const from=(catPage-1)*PAGE_SIZE,part=(packMode?plist:list).slice(from,from+PAGE_SIZE);
  $("#app").innerHTML=`<h1 class="h2" id="cat" tabindex="-1">Catálogo de artículos</h1><p class="sub">${N?`Mostrando ${from+1}–${from+part.length} de ${N} ${packMode?"pack":"producto"}${N===1?"":"s"}`:"Sin resultados"}</p>
  <div class="layout"><aside class="panel"><h2>Filtros</h2><small>Refina tu búsqueda</small>
@@ -97,7 +97,7 @@ let tt;function toast(m,lbl,fn,kind){if(typeof LEAVING!=="undefined"&&LEAVING){S
 // Líneas del resumen con el descuento de cada pack aplicado (solo si hay)
 function promoRows(){const r=packInfo();return r.total>0?`<div class="row">Productos<b>${money(bruto())}</b></div>${r.lineas.map(l=>`<div class="row promo-r">📦 ${esc(l.nombre)}${l.sets>1?" ×"+l.sets:""}<b>−${money(l.monto)}</b></div>`).join("")}`:""}
 const pctOff=p=>Math.round((1-p.price/p.was)*100);
-const priceHtml=p=>`${p.was?`<s class="was" aria-label="Precio anterior ${money(p.was)}">${money(p.was)}</s> `:""}${money(p.price)}`;
+const priceHtml=p=>`${p.was?`<s class="was"><span class="sr">Precio anterior </span>${money(p.was)}</s> `:""}${money(p.price)}`;
 function drawer(){
  const ids=Object.keys(cart);
  $("#drawer").innerHTML=`<div class="dh"><h2 id="dT">Tu carrito (${count()})</h2><button class="x" onclick="closeCart()" aria-label="Cerrar">✕</button></div>
@@ -213,11 +213,10 @@ function markCommentErrors(bad){for(const k of["t"]){const f=$("#cm_"+k).closest
 
 function favs(){
  const list=[...FAV].map(i=>P[i]).filter(Boolean);
- const packMode=F.av==="pack",plist=packMode?PACKS.filter(k=>k.ids.some(i=>F.cats.has(P[i].cat))&&(k.name+" "+k.ids.map(i=>P[i].name+P[i].by).join(" ")).toLowerCase().includes(F.q.toLowerCase())):[],N=packMode?plist.length:list.length; // con el filtro «Packs» se listan los packs, no los productos sueltos
- const pages=Math.max(1,Math.ceil(N/PAGE_SIZE));if(favPage>pages)favPage=pages;
- const from=(favPage-1)*PAGE_SIZE,part=(packMode?plist:list).slice(from,from+PAGE_SIZE);
+ const pages=Math.max(1,Math.ceil(list.length/PAGE_SIZE));favPage=Math.min(Math.max(1,Math.floor(+favPage)||1),pages);
+ const from=(favPage-1)*PAGE_SIZE,part=list.slice(from,from+PAGE_SIZE);
  $("#app").innerHTML=`<h1 class="h2" tabindex="-1">Mis favoritos</h1><p class="sub">${list.length?list.length+" producto"+(list.length===1?"":"s")+" guardado"+(list.length===1?"":"s"):"Toca el ♡ de un producto para guardarlo aquí."}</p>
- ${list.length?`<div class="grid">${part.map(card).join("")}</div>${pager(list.length,favPage,PAGE_SIZE,"fav")}`:`<div class="panel empty">Aún no tienes favoritos.<br><button class="btn" style="width:auto;padding:0 20px;margin-top:14px" onclick="goCat(['m','n','f'])">Ver catálogo</button></div>`}`}
+ ${list.length?`<h2 class="sr">Productos guardados</h2><div class="grid">${part.map(card).join("")}</div>${pager(list.length,favPage,PAGE_SIZE,"fav")}`:`<div class="panel empty">Aún no tienes favoritos.<br><button class="btn" style="width:auto;padding:0 20px;margin-top:14px" onclick="goCat(['m','n','f'])">Ver catálogo</button></div>`}`}
 
 /* ---- Paginación, avatar y perfil ---- */
 const PAGE_SIZE=12;
@@ -281,6 +280,7 @@ function qrpay(){
 /* ---- Menú de la cuenta (perfil y cerrar sesión) ---- */
 function fillUserMenu(){
  const m=$("#uMenu");if(!m)return;m.hidden=true;
+ if(USER){m.setAttribute("role","menu");m.setAttribute("aria-label","Mi cuenta")}else{m.removeAttribute("role");m.removeAttribute("aria-label")}
  m.innerHTML=USER?`<div class="uhead"><b>${esc(userName()||"Mi cuenta")}</b><small>${esc(USER)}</small></div>
  <button role="menuitem" onclick="closeUserMenu();go('perfil')">👤 Mi perfil</button>
  <hr><button role="menuitem" class="out" onclick="closeUserMenu();logout()">⎋ Cerrar sesión</button>`:""}

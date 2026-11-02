@@ -17,7 +17,10 @@ async function api(method,url,body){
  try{r=await fetch(url,{method,headers:{"Content-Type":"application/json",...(TOKEN?{Authorization:"Bearer "+TOKEN}:{})},body:body?JSON.stringify(body):undefined})}
  catch(e){throw Object.assign(new Error("No pudimos conectar con el servidor. Revisa tu conexión; si la tienda estaba inactiva, espera unos segundos e inténtalo de nuevo."),{red:true})}
  const d=await r.json().catch(()=>({}));
- if(!r.ok)throw Object.assign(new Error(d.error||"Error del servidor"),d,{status:r.status});
+ if(!r.ok){
+  // La sesión venció o se cerró en otro lado: se limpia y se lleva al usuario a iniciar sesión (el carrito se conserva para cuando vuelva)
+  if(r.status===401&&d.requiereLogin&&TOKEN){TOKEN=null;LS.set("sv_token",null);USER=null;ME=null;FAV=new Set();MYORDERS=[];cart={};try{sessionStorage.removeItem(BOOT_KEY)}catch(e){}setTimeout(()=>needLogin("Tu sesión venció. Inicia sesión de nuevo para continuar."),0)}
+  throw Object.assign(new Error(d.error||(d.errores&&Object.values(d.errores)[0])||"Error del servidor"),d,{status:r.status})}
  return d}
 
 function applyComments(list){const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));CM={};list.forEach(c=>(CM[idx[c.pid]]=CM[idx[c.pid]]||[]).push({id:c.id,uid:c.uid,n:c.n,t:c.t,r:c.r,d:c.d}))}
@@ -41,7 +44,7 @@ async function loadData(){const d=await api("GET","/api/bootstrap");applyBoot(d)
 function cartByDb(){return Object.entries(cart).filter(([i])=>P[i]).map(([i,q])=>[P[i].dbId,q])}
 function cartFromDb(list){const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));cart={};(list||[]).forEach(([d,q])=>{if(idx[d]!=null)cart[idx[d]]=q})}
 function saveCart(){if(USER)LS.set("sv_cart",{u:USER,items:cartByDb()})}
-function loadCart(){const s=LS.get("sv_cart",null);if(s&&USER&&s.u===USER)cartFromDb(s.items)}
+function loadCart(){const s=LS.get("sv_cart",null);if(s&&USER&&s.u===USER){cartFromDb(s.items);ajustarCarrito()}}
 
 /* --- Estado de la tienda --- */
 let DM="ship",cart={},F={cats:new Set(["m","n","f"]),av:"all",q:""},order=null,M="fisico";
@@ -60,9 +63,13 @@ const total=()=>sub()+ship();
 
 /* --- Carrito --- */
 let rm=null,rmAll=null; // último producto / carrito eliminado, para "Deshacer"
-const room=id=>P[id].pre?99:P[id].stock-(cart[id]||0);
+// Máximo por compra (viene de la tabla configuracion): 10 en stock (sin pasar del stock) y 5 en preventa
+const maxQ=id=>P[id].pre?CONFIG.max_cantidad_preventa:Math.min(P[id].stock,CONFIG.max_cantidad_stock);
+const room=id=>maxQ(id)-(cart[id]||0);
+// Ajusta el carrito a lo que hay hoy: quita lo agotado o dado de baja y baja las cantidades que pasan del máximo
+function ajustarCarrito(){for(const id of Object.keys(cart)){if(!P[id]){delete cart[id];continue}const m=maxQ(id);if(cart[id]>m){if(m<=0)delete cart[id];else cart[id]=m}}saveCart()}
 function cartAdd(id,n=1){n=Math.min(n,room(id));if(n<=0)return 0;cart[id]=(cart[id]||0)+n;return n}
-function cartChange(id,d){const p=P[id],q0=cart[id]||0,n=q0+d;if(n<=0){delete cart[id];if(q0>0){rm={id,q:q0};return true}}else if(p.pre||n<=p.stock)cart[id]=n;return false}
+function cartChange(id,d){const p=P[id],q0=cart[id]||0,n=q0+d;if(n<=0){delete cart[id];if(q0>0){rm={id,q:q0};return true}}else if(n<=maxQ(id))cart[id]=n;return false}
 function cartForget(){rm=null}
 function cartClear(){const ids=Object.keys(cart);if(!ids.length)return false;rmAll={...cart};rm=null;ids.forEach(i=>delete cart[i]);return true}
 function cartUndoRemove(){if(!rm)return false;cart[rm.id]=rm.q;rm=null;return true}

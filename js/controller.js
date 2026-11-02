@@ -35,7 +35,7 @@ $("#q").oninput=e=>{F.q=e.target.value;if(HERE!=="cat"){SS.set("sv_buscar",1);go
 
 /* --- Carrito --- */
 function needLogin(msg){PENDING=null;AM="in";if(HERE!=="login")SS.set("sv_volver",location.pathname.slice(1)+location.search);go("login");toast(msg,null,null,"warn")}
-function add(id,n=1){if(!USER){needLogin("Inicia sesión para añadir productos al carrito.");return}n=cartAdd(id,n);if(n<=0)return;
+function add(id,n=1){if(!P[id])return;if(!USER){needLogin("Inicia sesión para añadir productos al carrito.");return}n=cartAdd(id,n);if(n<=0)return;
  const a=document.activeElement,key=a&&a.dataset&&a.dataset.add;
  render();toast(`${n>1?n+" × ":""}${P[id].name} añadido al carrito`);
  const b=key&&document.querySelector(`[data-add="${key}"]:not([disabled])`);(b||$("#toast button")).focus()}
@@ -45,8 +45,8 @@ function addPack(id){
  const n=k.ids.reduce((a,i)=>a+cartAdd(i,1),0);
  if(!n){toast("Ya tienes el máximo disponible de este pack en tu carrito.",null,null,"warn");return}
  render();toast(n<k.ids.length?`Pack ${k.name}: añadimos ${n} de ${k.ids.length} productos (el resto ya está al máximo)`:`Pack ${k.name} añadido al carrito`);const b=$("#toast button");b&&b.focus()}
-function buy(id){if(!USER){needLogin("Inicia sesión para comprar.");return}const n=Math.min(+$("#qty").value||1,room(id));if(n>0)cartAdd(id,n);go("co")}
-function setQty(id,d){const name=P[id].name,removed=cartChange(id,d);render();drawer();
+function buy(id){if(!P[id])return;if(!USER){needLogin("Inicia sesión para comprar.");return}const n=Math.min(+$("#qty").value||1,room(id));if(n>0)cartAdd(id,n);go("co")}
+function setQty(id,d){if(!P[id])return;const name=P[id].name,removed=cartChange(id,d);render();drawer();
  if(removed)toast(`${name} eliminado del carrito`,"Deshacer","undoRm()","del");else if(cart[id])toast(`${name}: ${cart[id]} en el carrito`,null);
  const k=(removed&&$("#drawer .undo button"))||document.querySelector(`[data-k="${id}${d>0?"p":"m"}"]`)||$("#drawer .x");k&&k.focus()}
 function clearCart(){if(!cartClear())return;render();drawer();toast("Carrito vaciado","Deshacer","undoAll()","del");$("#drawer .x").focus()}
@@ -87,6 +87,7 @@ async function submitPay(){
   view="ok";render();scrollTo(0,0);$("#app h1").focus()
  }catch(e){
   busy=false;
+  if(e.agotados){await loadData().catch(()=>{});ajustarCarrito();view="co";render();toast((e.message||"Cambió el stock.")+" Ajustamos tu carrito.",null,null,"warn");return}
   if(e.errores)CE=e.errores;else toast(e.message||"No se pudo registrar tu pedido. Intenta de nuevo.",null,null,"del");
   checkout();const f=document.querySelector(".f.bad input,.f.bad select");f&&f.focus()}}
 let qrT=null;
@@ -111,7 +112,7 @@ async function authSubmit(e){
  if(r.pendiente||r.noVerificado){PENDING={email:r.email||em,simulado:r.simulado,error:r.error,seg:r.seguimiento};render();startPoll();const h=$("#app h1");h&&h.focus();return}
  if(r.error){const b=$("#aerr");b.textContent="⚠ "+r.error;b.hidden=false;b.focus();return}
  const first=r.user.name.split(" ")[0];
- goBack();toast(up?`Cuenta creada. ¡Bienvenido, ${first}!`:`Sesión iniciada. ¡Hola, ${first}!`,null)}
+ loadCart();goBack();toast(up?`Cuenta creada. ¡Bienvenido, ${first}!`:`Sesión iniciada. ¡Hola, ${first}!`,null)}
 function googleNoConfig(){toast("El inicio con Google aún no está configurado en el servidor.",null,null,"warn")}
 function initGoogle(tries=0){
  const box=$("#gbtn");if(!box||!GOOGLE_ID)return;
@@ -122,7 +123,7 @@ async function onGoogle(resp){
  const box=$("#gbtn");box&&box.insertAdjacentHTML("afterend",'<p class="foot" id="gwait" role="status"><span class="spin"></span> Iniciando sesión con Google…</p>');
  const r=await googleLogin(resp.credential);
  if(r.error){const w=$("#gwait");w&&w.remove();toast(r.error,null,null,"warn");return}
-PENDING=null;stopPoll();goBack();toast("Sesión iniciada con Google. ¡Hola, "+r.user.name.split(" ")[0]+"!",null)}
+PENDING=null;stopPoll();loadCart();goBack();toast("Sesión iniciada con Google. ¡Hola, "+r.user.name.split(" ")[0]+"!",null)}
 let pollT=null;
 function stopPoll(){clearInterval(pollT);pollT=null}
 function startPoll(){stopPoll();if(!PENDING||!PENDING.seg)return;pollT=setInterval(async()=>{if(!PENDING||PENDING.verified||view!=="login"){stopPoll();return}try{const d=await api("GET","/api/verificacion-estado?s="+PENDING.seg);if(d.verificado){PENDING.verified=true;PENDING.error=null;stopPoll();render();toast("¡Correo verificado! Ya puedes iniciar sesión.",null)}}catch(e){}},3000)}
@@ -148,6 +149,7 @@ document.addEventListener("click",e=>{if(!e.target.closest(".uwrap"))closeUserMe
 document.addEventListener("focusin",e=>{if(!e.target.closest(".uwrap"))closeUserMenu()});
 
 /* --- Arranque: primero se cargan los datos desde la base de datos --- */
+$("#drawerOv").addEventListener("click",e=>{if(e.target===e.currentTarget)closeCart()}); // clic fuera del carrito lo cierra
 /* --- Arranque de cada página: datos de la base (al instante desde la copia de la pestaña, si existe) --- */
 function startView(){
  const qp=new URLSearchParams(location.search);view=HERE;
@@ -157,7 +159,7 @@ function startView(){
 (async function init(){
  const cached=cachedBoot();
  try{if(cached)applyBoot(cached);else await loadData()}
- catch(e){$("#app").innerHTML='<div class="panel empty" role="alert"><b>No se pudo conectar con el servidor.</b><br>Si la tienda estaba inactiva, espera unos segundos y <a href="">vuelve a cargar la página</a>.</div>';return}
+ catch(e){$("#app").innerHTML='<h1 class="h2" tabindex="-1">No se pudo conectar con el servidor</h1><div class="panel empty" role="alert">Si la tienda estaba inactiva, espera unos segundos y <a href="">vuelve a cargar la página</a>.</div>';return}
  loadCart();
  // Enlaces antiguos con # (#/catalogo, #/p/3…) se envían a su página
  const h=location.hash;
@@ -166,7 +168,7 @@ function startView(){
  const t=SS.get("sv_toast");if(t)toast(...t);
  if(SS.get("sv_buscar")){const q=$("#q");q.focus();q.setSelectionRange(q.value.length,q.value.length)}
  // Con la copia en pantalla, se piden los datos frescos y se actualiza la vista si el usuario no está escribiendo
- if(cached)loadData().then(()=>{const a=document.activeElement;if(["home","cat","prod","fav","help"].includes(view)&&!(a&&a.matches("input,textarea,select"))&&!$("#drawerOv.on"))render();else header()}).catch(()=>{});
+ if(cached)loadData().then(()=>{ajustarCarrito();const a=document.activeElement;if(["home","cat","prod","fav","help","ofer","co"].includes(view)&&!(a&&a.matches("input,textarea,select"))&&!$("#drawerOv.on"))render();else header()}).catch(()=>{});
  const pq=new URLSearchParams(location.search),pg=pq.get("pago"),pn=pq.get("n"),pm=pq.get("m");
  if(pg){
   history.replaceState(null,"",location.pathname);
