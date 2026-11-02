@@ -643,6 +643,14 @@ async function actualizarCatalogo() {
     });
     console.log('Ofertas del catálogo aplicadas (rebajas y packs).');
   }
+  // Reposición única: los productos en stock que quedaron en 0 vuelven a 5 unidades (después se manejan desde la administración)
+  if (!(await one("SELECT valor FROM configuracion WHERE clave='stock_repuesto'"))) {
+    await tx(async t => {
+      await t.run('UPDATE productos SET stock=5 WHERE stock<=0 AND preventa IS NULL');
+      await t.run("INSERT OR REPLACE INTO configuracion(clave,valor,detalle) VALUES ('stock_repuesto',1,'Reposición única de productos agotados (uso interno)')");
+    });
+    console.log('Productos agotados repuestos a 5 unidades.');
+  }
   if (cambios) console.log(`Catálogo actualizado: ${cambios} producto(s).`);
 }
 
