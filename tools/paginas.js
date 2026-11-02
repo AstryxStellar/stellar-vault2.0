@@ -20,29 +20,33 @@ const PAGINAS = [
 
 const NAV = [['index.html', 'home', 'Inicio'], ['catalogo.html', 'cat', 'Catálogo'], ['ofertas.html', 'ofer', 'Ofertas'], ['favoritos.html', 'fav', 'Favoritos'], ['pedidos.html', 'acct', 'Mis pedidos'], ['ayuda.html', 'help', 'Ayuda']];
 
+// Título principal que se ve (y se lee) antes de que cargue el contenido, o si el servidor no responde
+const H1 = { home: 'Bienvenido a STELLAR VAULT', prod: 'Producto', co: 'Finalizar pedido', cat: 'Catálogo de artículos' };
 const pagina = ([archivo, vista, titulo, desc]) => `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>${titulo} – STELLAR VAULT</title>
 <meta name="description" content="${desc}">
 <script>try{var t=localStorage.getItem("sv_tema");if(!t&&matchMedia("(prefers-color-scheme: dark)").matches)t="dark";if(t)document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="icon" type="image/webp" href="img/logo.webp">
 <link rel="preconnect" href="https://accounts.google.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/estilos.css">
 </head><body data-page="${vista}">
 <a class="skip" href="#app">Saltar al contenido</a>
 <header>
- <a class="logo" href="index.html" aria-label="STELLAR VAULT, ir al inicio"><img id="hlogo" alt="" width="48" height="48">STELLAR<b>VAULT</b></a>
+ <a class="logo" href="/" aria-label="STELLAR VAULT, ir al inicio"><img id="hlogo" src="img/logo.webp" alt="" width="48" height="48">STELLAR<b>VAULT</b></a>
  <nav class="mainnav" aria-label="Principal">${NAV.map(([h, v, t]) => `<a href="${h}"${v === vista ? ' aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
- <input class="search" id="q" type="search" placeholder="Buscar manga, novela ligera o figura…" aria-label="Buscar productos">
- <div class="uwrap"><button class="ubtn" id="userBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="uMenu"></button><div class="umenu" id="uMenu" role="menu" aria-label="Mi cuenta" hidden></div></div>
- <button class="cartbtn" id="cartBtn" onclick="openCart()"></button>
+ <label class="sr" for="q">Buscar productos</label>
+ <input class="search" id="q" type="search" placeholder="Buscar manga, novela ligera o figura…" autocomplete="off">
+ <div class="uwrap"><button class="ubtn" id="userBtn" type="button" aria-label="Iniciar sesión o crear cuenta">Ingresar</button><div class="umenu" id="uMenu" hidden></div></div>
+ <button class="cartbtn" id="cartBtn" type="button" onclick="openCart()">Carrito: 0 ítems</button>
 </header>
-<main id="app" tabindex="-1"><div class="panel empty" role="status"><span class="spin"></span> Cargando…</div></main>
+<main id="app" tabindex="-1"><h1 class="h2" tabindex="-1">${H1[vista] || titulo}</h1><div class="panel empty" role="status"><span class="spin" aria-hidden="true"></span> Cargando…</div><noscript><div class="panel empty">Esta tienda necesita JavaScript para mostrar el catálogo. Actívalo en tu navegador e inténtalo de nuevo.</div></noscript></main>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 <footer>
  <div class="fgrid">
-  <section aria-labelledby="f1"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><img id="flogo" alt="" width="44" height="44"><h2 id="f1" style="margin:0">Tienda</h2></div>
+  <section aria-labelledby="f1"><div style="display:flex;align-items:center;gap:12px;margin-bottom:12px"><img id="flogo" src="img/logo.webp" alt="" width="44" height="44"><h2 id="f1" style="margin:0">Tienda</h2></div>
    <p>STELLAR VAULT es tu tienda geek de mangas, novelas ligeras y figuras coleccionables. Trabajamos para que encuentres tus series favoritas. Hacemos envíos por Servientrega a todo el Ecuador o puedes retirar tu pedido en tienda.</p></section>
   <nav aria-labelledby="f2"><h2 id="f2">STELLAR VAULT</h2><ul><li><a class="flink" href="index.html">Inicio</a></li><li><a class="flink" href="catalogo.html">Catálogo</a></li><li><a class="flink" href="ofertas.html">Ofertas</a></li><li><a class="flink" href="ayuda.html">Ayuda</a></li><li><a class="flink" href="catalogo.html?disp=pre">Preventas oficiales</a></li><li><a class="flink" href="catalogo.html?cat=f">Figuras coleccionables</a></li></ul></nav>
   <section aria-labelledby="f3"><h2 id="f3">Contacto</h2>
@@ -51,7 +55,7 @@ const pagina = ([archivo, vista, titulo, desc]) => `<!DOCTYPE html>
  <div class="fcopy">Copyright © 2026 | STELLAR VAULT</div>
 </footer>
 
-<div class="ov" id="drawerOv" onclick="if(event.target===this)closeCart()"><aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dT"></aside></div>
+<div class="ov" id="drawerOv"><div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="Tu carrito de compras"></div></div>
 
 ${vista === 'login' ? '<script src="https://accounts.google.com/gsi/client" async defer></script>\n' : ''}${vista === 'co' ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>\n' : ''}<script src="js/rules.js"></script>
 <script src="js/model.js"></script>
