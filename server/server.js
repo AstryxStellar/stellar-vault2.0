@@ -493,12 +493,18 @@ const rutas = {
     if (Object.keys(err).length) throw new HttpError(422, { errores: err });
     if (!['fisico', 'deuna'].includes(body.metodo)) throw new HttpError(422, { error: 'Método de pago no válido.' });
     if (!Array.isArray(body.items) || body.items.length > 50) throw new HttpError(422, { error: 'Tu carrito tiene demasiados productos distintos.' });
-    const itemsBrutos = await Promise.all((body.items || []).map(async i => ({ q: Number(i && i.q), prod: await one('SELECT id,precio FROM productos WHERE id=? AND activo=1', Number.isInteger(Number(i && i.id)) ? Number(i.id) : null) })));
+    const itemsBrutos = await Promise.all((body.items || []).map(async i => ({ q: Number(i && i.q), prod: await one('SELECT id,nombre,precio,stock,preventa FROM productos WHERE id=? AND activo=1', Number.isInteger(Number(i && i.id)) ? Number(i.id) : null) })));
     if (!itemsBrutos.length || itemsBrutos.some(i => !i.prod || !Number.isInteger(i.q) || i.q < 1)) throw new HttpError(422, { error: 'Tu carrito está vacío o tiene productos no válidos.' });
     // Si un producto viene repetido en la lista se suman sus cantidades (la base solo admite una línea por producto).
     const unidos = new Map();
     for (const i of itemsBrutos) { const x = unidos.get(i.prod.id); if (x) x.q += i.q; else unidos.set(i.prod.id, { ...i }); }
     const items = [...unidos.values()];
+    // Máximo por compra (tabla configuracion) y stock disponible: el mensaje dice cuál producto es y cuántos quedan
+    const lim = await cfg();
+    const pasa = items.find(i => i.q > (i.prod.preventa ? lim.max_cantidad_preventa : lim.max_cantidad_stock));
+    if (pasa) throw new HttpError(422, { error: `Máximo ${pasa.prod.preventa ? lim.max_cantidad_preventa : lim.max_cantidad_stock} unidades de «${pasa.prod.nombre}» por compra.` });
+    const sinStock = items.filter(i => !i.prod.preventa && i.q > i.prod.stock);
+    if (sinStock.length) throw new HttpError(409, { error: sinStock.map(i => i.prod.stock > 0 ? `«${i.prod.nombre}»: solo quedan ${i.prod.stock}.` : `«${i.prod.nombre}» se agotó.`).join(' '), agotados: sinStock.map(i => ({ id: i.prod.id, quedan: i.prod.stock })) });
     // Un pedido nuevo reemplaza los pagos DeUna que el usuario dejó sin terminar (así no se retiene stock).
     for (const x of await q("SELECT pg.id,pg.pedido_id FROM pagos pg JOIN pedidos pe ON pe.id=pg.pedido_id WHERE pe.usuario_id=? AND pg.estado='pendiente' AND pg.metodo<>'fisico'", user.id))
       await cerrarPago(x.id, x.pedido_id, 'cancelado', 'Reemplazado por un pedido nuevo.');
@@ -595,7 +601,9 @@ async function verificarTokenGoogle(cred) {
 async function actualizarCatalogo() {
   const cols = async t => (await q(`PRAGMA table_info(${t})`)).map(c => c.name);
   if (!(await cols('pedidos')).includes('descuento')) await run('ALTER TABLE pedidos ADD COLUMN descuento REAL NOT NULL DEFAULT 0 CHECK (descuento >= 0)');
-  const { filasSemilla, RENOMBRES, PACKS, REBAJAS, ENVIO_GRATIS } = require('./seed');
+  const { filasSemilla, RENOMBRES, PACKS, REBAJAS, REGLAS_EXTRA, ENVIO_GRATIS } = require('./seed');
+  for (const r of REGLAS_EXTRA) if (!(await one('SELECT 1 AS x FROM reglas_validacion WHERE ambito=? AND campo=? AND tipo=?', r[0], r[1], r[2])))
+    await run('INSERT INTO reglas_validacion(ambito,campo,tipo,valor,condicion,mensaje) VALUES (?,?,?,?,?,?)', ...r);
   await run('CREATE TABLE IF NOT EXISTS packs (id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE CHECK (length(trim(nombre)) BETWEEN 3 AND 80), descuento_pct INTEGER NOT NULL CHECK (descuento_pct BETWEEN 1 AND 60), activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)))');
   await run('CREATE TABLE IF NOT EXISTS pack_items (pack_id INTEGER NOT NULL REFERENCES packs(id) ON DELETE CASCADE, producto_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE, PRIMARY KEY (pack_id, producto_id))');
   if (!(await cols('productos')).includes('precio_antes')) await run('ALTER TABLE productos ADD COLUMN precio_antes REAL CHECK (precio_antes IS NULL OR precio_antes > precio)');
@@ -643,8 +651,13 @@ async function actualizarCatalogo() {
 const ADMIN = require('./admin')({ q, one, run, tx, HttpError, dbError, limitar, enviarComprobante });
 Object.assign(rutas, ADMIN.rutas);
 const PAGINAS_HTML = ['index', 'ofertas', 'catalogo', 'producto', 'favoritos', 'pedidos', 'pagar', 'ingresar', 'perfil', 'ayuda'];
-const ESTATICOS = { '/': 'index.html', '/css/estilos.css': 'css/estilos.css', '/admin': 'admin/index.html', '/admin/': 'admin/index.html', '/admin/admin.js': 'admin/admin.js', ...Object.fromEntries(PAGINAS_HTML.map(p => ['/' + p + '.html', p + '.html'])) };
-const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8' };
+const ESTATICOS = { '/': 'index.html', '/css/estilos.css': 'css/estilos.css', '/favicon.ico': 'img/logo.webp', '/robots.txt': 'robots.txt', '/admin': 'admin/index.html', '/admin/': 'admin/index.html', '/admin/admin.js': 'admin/admin.js', ...Object.fromEntries(PAGINAS_HTML.map(p => ['/' + p + '.html', p + '.html'])) };
+const TIPOS = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.webp': 'image/webp', '.txt': 'text/plain; charset=utf-8' };
+// Página de error 404 con salida a la tienda (en vez de texto plano)
+const PAGINA_404 = `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Página no encontrada – STELLAR VAULT</title><link rel="icon" type="image/webp" href="/img/logo.webp">
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#fff5f8;color:#2a1a2e;font-family:Inter,Arial,sans-serif}@media(prefers-color-scheme:dark){body{background:#1b1220;color:#f5eaf1}a{color:#ff7aa2}}
+main{max-width:440px;margin:16px;padding:32px 24px;text-align:center}h1{font-size:28px;margin:0 0 8px}p{line-height:1.5;margin:8px 0}a{color:#b3123f;font-weight:700}a:focus-visible{outline:3px solid currentColor;outline-offset:3px}</style></head>
+<body><main><h1>Página no encontrada</h1><p>La dirección que escribiste no existe o cambió de lugar.</p><p><a href="/">Ir al inicio</a> · <a href="/catalogo.html">Ver el catálogo</a> · <a href="/ofertas.html">Ofertas</a></p></main></body></html>`;
 
 function leerCuerpo(req) {
   return new Promise((ok, fail) => {
@@ -679,6 +692,7 @@ const server = http.createServer(async (req, res) => {
       if (r && r.__redirect) { res.writeHead(302, { Location: r.__redirect }); return res.end(); }
       return enviar(res, 200, r);
     }
+    if (!['GET', 'HEAD'].includes(req.method)) { res.setHeader('Allow', 'GET, HEAD'); return enviar(res, 405, 'Método no permitido', 'text/plain; charset=utf-8'); }
     const mp = url.pathname.match(/^\/pago\/([0-9a-f]{48})(\/app)?$/);
     if (mp) {
       limitar(req, 'pagopag', 60, 60000);
@@ -696,11 +710,18 @@ const server = http.createServer(async (req, res) => {
     }
     const m = url.pathname.match(/^\/js\/(model|view|controller|rules)\.js$/);
     const file = ESTATICOS[url.pathname] || (m && 'js/' + m[1] + '.js');
-    if (!file) return enviar(res, 404, 'No encontrado', 'text/plain; charset=utf-8');
+    if (!file) {
+      // Direcciones escritas a mano: /catalogo, /Ofertas/, /index.html... llevan a la página correcta
+      const corto = url.pathname.toLowerCase().replace(/\/+$/, '').replace(/^\//, '').replace(/\.html$/, '');
+      if (corto === 'index' || corto === 'inicio') { res.writeHead(301, { Location: '/' }); return res.end(); }
+      if (corto === 'admin' || corto === 'admin/index') { res.writeHead(301, { Location: '/admin/' }); return res.end(); }
+      if (PAGINAS_HTML.includes(corto)) { res.writeHead(301, { Location: '/' + corto + '.html' }); return res.end(); }
+      return enviar(res, 404, PAGINA_404, 'text/html; charset=utf-8');
+    }
     enviar(res, 200, fs.readFileSync(path.join(ROOT, file)), TIPOS[path.extname(file)]);
   } catch (e) {
     if (req.method !== 'GET' && /^\/api\/(pedidos|comentarios|pagos|admin)/.test(url.pathname)) bootPublico = null;
-    if (req.__grande) { res.setHeader('Connection', 'close'); res.on('finish', () => req.destroy()); } // se responde 413 y después se corta la subida
+    if (req.__grande) { res.setHeader('Connection', 'close'); res.on('finish', () => setTimeout(() => req.destroy(), 2000).unref()); } // se responde 413 y después se corta la subida
     if (e instanceof HttpError) return enviar(res, e.status, e.body);
     console.error(e); enviar(res, 500, { error: 'Error del servidor.' });
   }

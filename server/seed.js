@@ -95,6 +95,17 @@ const ENVIO_GRATIS = 80; // compra mínima (USD) para envío gratis
 
 const DESTACADOS =new Set(['Chainsaw Man Vol. 15', 'Frieren Vol. 6', 'Furina 1/7 Genshin Impact', 'Mushoku Tensei Vol. 7']);
 
+// Largos máximos de los datos de entrega (se agregan también a una base ya creada al arrancar)
+const REGLAS_EXTRA = [
+  ['checkout', 'name', 'maxlen', '80', null, 'El nombre no puede pasar de 80 caracteres.'],
+  ['checkout', 'email', 'maxlen', '120', null, 'El correo no puede pasar de 120 caracteres.'],
+  ['checkout', 'addr', 'maxlen', '150', null, 'La dirección no puede pasar de 150 caracteres.'],
+  ['checkout', 'ref', 'maxlen', '150', null, 'La referencia no puede pasar de 150 caracteres.'],
+  ['checkout', 'edif', 'maxlen', '80', null, 'El nombre del edificio no puede pasar de 80 caracteres.'],
+  ['checkout', 'piso', 'maxlen', '10', null, 'El piso no puede pasar de 10 caracteres.'],
+  ['checkout', 'unit', 'maxlen', '10', null, 'El número no puede pasar de 10 caracteres.'],
+  ['perfil', 'addr', 'maxlen', '150', null, 'La dirección no puede pasar de 150 caracteres.'],
+];
 const REGLAS = [
   // [ámbito, campo, tipo, valor, condición, mensaje]
   ['checkout', 'name', 'regex', '^\\s*\\S{2,}(\\s+\\S{2,})+\\s*$', null, 'Escribe tu nombre y apellido.'],
@@ -182,7 +193,7 @@ async function seed(db, hashPassword) {
   USUARIOS.forEach((n, i) => ins('INSERT INTO usuarios(id,nombre,email,password_hash,verificado) VALUES (?,?,?,?,1)', i + 1, n, slug(n) + '@correo.com', pass));
 
   // Reglas de validación
-  REGLAS.forEach(r => ins('INSERT INTO reglas_validacion(ambito,campo,tipo,valor,condicion,mensaje) VALUES (?,?,?,?,?,?)', ...r));
+  [...REGLAS, ...REGLAS_EXTRA].forEach(r => ins('INSERT INTO reglas_validacion(ambito,campo,tipo,valor,condicion,mensaje) VALUES (?,?,?,?,?,?)', ...r));
 
   // Pedidos de ejemplo (el stock se descuenta con los triggers)
   const stockProds = PRODS.filter(p => !p.pre && p.stock >= 8);
@@ -232,4 +243,4 @@ const productosSemilla = () => [
 ];
 
 const filasSemilla = () => [...NUEVOS, ...EXTRA];
-module.exports = { seed, productosSemilla, filasSemilla, RENOMBRES, PACKS, REBAJAS, ENVIO_GRATIS };
+module.exports = { seed, productosSemilla, filasSemilla, RENOMBRES, PACKS, REBAJAS, REGLAS_EXTRA, ENVIO_GRATIS };
