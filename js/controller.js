@@ -110,7 +110,9 @@ async function authSubmit(e){
  e.preventDefault();const up=AM==="up",em=$("#a_e").value.trim().toLowerCase(),pw=$("#a_p").value,nm=up?$("#a_n").value.trim():"";
  const r=up?await registerUser(nm,em,pw):await loginUser(em,pw);
  if(r.pendiente||r.noVerificado){PENDING={email:r.email||em,simulado:r.simulado,error:r.error,seg:r.seguimiento};render();startPoll();const h=$("#app h1");h&&h.focus();return}
- if(r.error){const b=$("#aerr");b.textContent="⚠ "+r.error;b.hidden=false;b.focus();return}
+ if(r.error){const b=$("#aerr");b.textContent="⚠ "+r.error;
+  if(r.noExiste){const c=document.createElement("button");c.type="button";c.className="alink";c.style.display="block";c.style.marginTop="6px";c.textContent="Crear una cuenta con este correo";c.onclick=()=>{AM="up";render();const e=$("#a_e");if(e)e.value=em;const n=$("#a_n");n&&n.focus()};b.appendChild(c)}
+  b.hidden=false;b.focus();return}
  const first=r.user.name.split(" ")[0];
  loadCart();goBack();toast(up?`Cuenta creada. ¡Bienvenido, ${first}!`:`Sesión iniciada. ¡Hola, ${first}!`,null)}
 function googleNoConfig(){toast("El inicio con Google aún no está configurado en el servidor.",null,null,"warn")}
@@ -131,6 +133,7 @@ function goLoginVerified(){const em=PENDING&&PENDING.email;PENDING=null;AM="in";
 async function resendFromLogin(){const em=(($("#a_e")||{}).value||"").trim().toLowerCase(),e=checkRules("login",{email:em});if(Object.keys(e).length){const b=$("#aerr");b.textContent="⚠ Escribe tu correo arriba para reenviarte el enlace.";b.hidden=false;b.focus();return}PENDING={email:em};await resendMail()}
 async function resendMail(){if(!PENDING)return;try{const d=await resendVerification(PENDING.email);PENDING.error=null;PENDING.simulado=d.simulado;render();toast("Reenviamos el correo a "+PENDING.email,null)}catch(e){PENDING.error=e.message;render()}}
 async function toggleFavUI(i){if(!USER){needLogin("Inicia sesión para guardar favoritos.");return}const on=await toggleFav(i);render();toast(on?P[i].name+" añadido a favoritos":P[i].name+" quitado de favoritos",null);const b=document.querySelector('[data-fav="'+i+'"]');b&&b.focus()}
+async function toggleFavPackUI(kid){if(!USER){needLogin("Inicia sesión para guardar favoritos.");return}const k=PACKS.find(x=>x.id===kid);if(!k)return;const on=await toggleFavPack(kid);render();toast(on?k.name+" añadido a favoritos":k.name+" quitado de favoritos",null);const b=document.querySelector('[data-favp="'+kid+'"]');b&&b.focus()}
 function logout(){endSession();go("home");toast("Cerraste sesión",null)}
 function reorder(i){const o=ordersOf()[i];if(!o)return;o.items.forEach(it=>{const k=P.findIndex(p=>p.dbId===it.id);if(k>=0)add(k,it.q)})}
 

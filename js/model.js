@@ -37,7 +37,7 @@ const BOOT_KEY="sv_boot";
 function cachedBoot(){try{const c=JSON.parse(sessionStorage.getItem(BOOT_KEY));return c&&c.tk===(TOKEN||"")?c.d:null}catch(e){return null}}
 function applyBoot(d){
  const keep=cartByDb();applyData(d);cartFromDb(keep);
- if(d.usuario){setUser(d.usuario);const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));FAV=new Set((d.favoritos||[]).map(i=>idx[i]).filter(i=>i!=null))}
+ if(d.usuario){setUser(d.usuario);const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));FAV=new Set((d.favoritos||[]).map(i=>idx[i]).filter(i=>i!=null));FAVP=new Set(d.favoritosPacks||[])}
  else if(TOKEN){TOKEN=null;LS.set("sv_token",null);USER=null;ME=null}}
 async function loadData(){const d=await api("GET","/api/bootstrap");applyBoot(d);try{sessionStorage.setItem(BOOT_KEY,JSON.stringify({tk:TOKEN||"",d}))}catch(e){}return d}
 // El carrito se guarda por id de la base, así sobrevive al cambio de página y a cambios del catálogo.
@@ -99,15 +99,16 @@ async function finishPaid(numero){ // el pago se aprobó: se trae el pedido ya p
  await loadData().catch(()=>{})}
 
 /* --- Cuentas e historial (tablas usuarios, sesiones, pedidos) --- */
-let USER=null,ME=null,MYORDERS=[],FAV=new Set();const ORD={fresh:false,loaded:false};
+let USER=null,ME=null,MYORDERS=[],FAV=new Set(),FAVP=new Set();/* FAVP: ids de los packs favoritos */const ORD={fresh:false,loaded:false};
 const userName=()=>ME&&ME.nombre;
 const ordersOf=()=>MYORDERS;
 function updateMe(u){ME=u;USER=u.email;V.email=u.email;V.name=u.nombre;V.tel=u.telefono||V.tel;if(u.prov){V.prov=u.prov;V.city=u.city}if(u.addr)V.addr=u.addr}
 function setUser(u,token){if(token){TOKEN=token;LS.set("sv_token",token);try{sessionStorage.removeItem(BOOT_KEY)}catch(e){}}updateMe(u);ORD.fresh=false;ORD.loaded=false}
-function endSession(){if(TOKEN)api("POST","/api/logout").catch(()=>{});TOKEN=null;LS.set("sv_token",null);LS.set("sv_cart",null);try{sessionStorage.removeItem(BOOT_KEY)}catch(e){}USER=null;ME=null;MYORDERS=[];FAV=new Set();cart={};V.name="";V.email="";V.tel="";V.prov="";V.city="";V.addr="";ORD.fresh=false;ORD.loaded=false}
+function endSession(){if(TOKEN)api("POST","/api/logout").catch(()=>{});TOKEN=null;LS.set("sv_token",null);LS.set("sv_cart",null);try{sessionStorage.removeItem(BOOT_KEY)}catch(e){}USER=null;ME=null;MYORDERS=[];FAV=new Set();FAVP=new Set();cart={};V.name="";V.email="";V.tel="";V.prov="";V.city="";V.addr="";ORD.fresh=false;ORD.loaded=false}
 async function restoreSession(){if(!TOKEN)return;try{const d=await api("GET","/api/yo");if(d.usuario){setUser(d.usuario);await loadFavs()}else{TOKEN=null;LS.set("sv_token",null)}}catch(e){}}
 async function loadOrders(){try{MYORDERS=(await api("GET","/api/pedidos")).pedidos}catch(e){MYORDERS=[]}ORD.loaded=true}
-async function loadFavs(){try{const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));FAV=new Set((await api("GET","/api/favoritos")).favoritos.map(i=>idx[i]).filter(i=>i!=null))}catch(e){FAV=new Set()}}
+async function loadFavs(){try{const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id])),d=await api("GET","/api/favoritos");FAV=new Set(d.favoritos.map(i=>idx[i]).filter(i=>i!=null));FAVP=new Set(d.favoritosPacks||[])}catch(e){FAV=new Set();FAVP=new Set()}}
+async function toggleFavPack(kid){const on=!FAVP.has(kid);try{const d=on?await api("POST","/api/favoritos/packs",{pack_id:kid}):await api("DELETE","/api/favoritos/packs/"+kid);FAVP=new Set(d.favoritosPacks);return FAVP.has(kid)}catch(e){return!on}}
 async function toggleFav(i){const on=!FAV.has(i);try{const idx=Object.fromEntries(P.map(p=>[p.dbId,p.id]));const d=on?await api("POST","/api/favoritos",{producto_id:P[i].dbId}):await api("DELETE","/api/favoritos/"+P[i].dbId);FAV=new Set(d.favoritos.map(x=>idx[x]).filter(x=>x!=null));return FAV.has(i)}catch(e){return!on}}
 async function resendVerification(em){return api("POST","/api/reenviar",{email:em})}
 async function registerUser(nm,em,pw){
@@ -116,4 +117,4 @@ async function registerUser(nm,em,pw){
 async function googleLogin(credential){try{const d=await api("POST","/api/google",{credential});setUser(d.usuario,d.token);return{user:{name:d.usuario.nombre}}}catch(x){return{error:x.message}}}
 async function loginUser(em,pw){
  const e=checkRules("login",{email:em});if(Object.keys(e).length)return{error:Object.values(e)[0]};
- try{const d=await api("POST","/api/login",{email:em,password:pw});setUser(d.usuario,d.token);return{user:{name:d.usuario.nombre}}}catch(x){return{error:x.message,noVerificado:x.noVerificado,email:x.email,seguimiento:x.seguimiento}}}
+ try{const d=await api("POST","/api/login",{email:em,password:pw});setUser(d.usuario,d.token);return{user:{name:d.usuario.nombre}}}catch(x){return{error:x.message,noExiste:x.noExiste,noVerificado:x.noVerificado,email:x.email,seguimiento:x.seguimiento}}}

@@ -33,7 +33,8 @@ function packMini(k,actual){
  <button class="pk-add" onclick="addPack(${k.id})">Añadir pack al carrito</button></div>`}
 function packCard(k){
  const sum=packSum(k),price=packPrice(k);
- return `<article class="pack" aria-label="${esc(k.name)}"><div class="pk-top"><span class="pk-pct">📦 −${k.pct}%</span><h3>${esc(k.name)}</h3></div>
+ const fv=FAVP.has(k.id);
+ return `<article class="pack" aria-label="${esc(k.name)}"><button class="fav${fv?" on":""}" data-favp="${k.id}" onclick="toggleFavPackUI(${k.id})" aria-pressed="${fv}" aria-label="${fv?"Quitar de favoritos":"Añadir a favoritos"}: ${esc(k.name)}">${fv?"♥":"♡"}</button><div class="pk-top"><span class="pk-pct">📦 −${k.pct}%</span><h3>${esc(k.name)}</h3></div>
  <div class="pk-covers">${k.ids.map(i=>`<a href="${prodUrl(i)}" class="pk-c" tabindex="-1" aria-hidden="true">${cover(P[i],70)}</a>`).join('<span class="pk-plus" aria-hidden="true">+</span>')}</div>
  <ul class="pk-l">${k.ids.map(i=>`<li><a href="${prodUrl(i)}">${esc(P[i].name)}</a><span>${money(P[i].price)}</span></li>`).join("")}</ul>
  <div class="price"><s class="was">${money(sum)}</s> ${money(price)} USD<small>Ahorras ${money(sum-price)}</small></div>
@@ -214,8 +215,12 @@ function favs(){
  const list=[...FAV].map(i=>P[i]).filter(Boolean);
  const pages=Math.max(1,Math.ceil(list.length/PAGE_SIZE));favPage=Math.min(Math.max(1,Math.floor(+favPage)||1),pages);
  const from=(favPage-1)*PAGE_SIZE,part=list.slice(from,from+PAGE_SIZE);
- $("#app").innerHTML=`<h1 class="h2" tabindex="-1">Mis favoritos</h1><p class="sub">${list.length?list.length+" producto"+(list.length===1?"":"s")+" guardado"+(list.length===1?"":"s"):"Toca el ♡ de un producto para guardarlo aquí."}</p>
- ${list.length?`<h2 class="sr">Productos guardados</h2><div class="grid">${part.map(card).join("")}</div>${pager(list.length,favPage,PAGE_SIZE,"fav")}`:`<div class="panel empty">Aún no tienes favoritos.<br><button class="btn" style="width:auto;padding:0 20px;margin-top:14px" onclick="goCat(['m','n','f'])">Ver catálogo</button></div>`}`}
+ const packs=PACKS.filter(k=>FAVP.has(k.id)),n=list.length+packs.length;
+ const resumen=[list.length?list.length+" producto"+(list.length===1?"":"s"):"",packs.length?packs.length+" pack"+(packs.length===1?"":"s"):""].filter(Boolean).join(" y ");
+ $("#app").innerHTML=`<h1 class="h2" tabindex="-1">Mis favoritos</h1><p class="sub">${n?resumen+" guardado"+(n===1?"":"s"):"Toca el ♡ de un producto o de un pack para guardarlo aquí."}</p>
+ ${packs.length?`<section class="sec" aria-labelledby="hfp"><h2 id="hfp">Packs guardados</h2><div class="packs">${packs.map(packCard).join("")}</div></section>`:""}
+ ${list.length?`<section class="sec" aria-labelledby="hfi"><h2 id="hfi" class="${packs.length?"":"sr"}">Productos guardados</h2><div class="grid">${part.map(card).join("")}</div>${pager(list.length,favPage,PAGE_SIZE,"fav")}</section>`:""}
+ ${n?"":`<div class="panel empty">Aún no tienes favoritos.<br><button class="btn" style="width:auto;padding:0 20px;margin-top:14px" onclick="goCat(['m','n','f'])">Ver catálogo</button> <button class="btn alt" style="width:auto;padding:0 20px;margin-top:14px" onclick="go('ofer')">Ver packs</button></div>`}`}
 
 /* ---- Paginación, avatar y perfil ---- */
 const PAGE_SIZE=12;
