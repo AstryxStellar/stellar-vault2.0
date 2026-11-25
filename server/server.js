@@ -74,7 +74,7 @@ function anotarFallo(clave) {
   if (!h || h.t < ahora) { h = { n: 0, t: ahora + 300000 }; fallosCorreo.set(clave, h); }
   h.n++;
 }
-const LIMITES = { 'POST /api/login': [10, 60000], 'POST /api/registro': [5, 600000], 'POST /api/reenviar': [5, 600000], 'POST /api/google': [20, 60000], 'PUT /api/perfil': [30, 60000], 'POST /api/pagos/:token/confirmar': [30, 60000], 'POST /api/pagos/:token/rechazar': [30, 60000], 'POST /api/perfil/password': [10, 60000], 'POST /api/pedidos': [20, 60000], 'POST /api/comentarios': [20, 60000], 'POST /api/favoritos': [60, 60000] };
+const LIMITES = { 'POST /api/login': [10, 60000], 'POST /api/registro': [5, 600000], 'POST /api/reenviar': [5, 600000], 'POST /api/google': [20, 60000], 'PUT /api/perfil': [30, 60000], 'POST /api/pagos/:token/confirmar': [30, 60000], 'POST /api/pagos/:token/rechazar': [30, 60000], 'POST /api/perfil/password': [10, 60000], 'POST /api/pedidos': [20, 60000], 'POST /api/comentarios': [20, 60000], 'POST /api/favoritos': [60, 60000], 'POST /api/favoritos/packs': [60, 60000] };
 const exigirSesion = (user, msg = 'Inicia sesión para continuar.') => { if (!user) throw new HttpError(401, { error: msg, requiereLogin: true }); return user; };
 
 // El navegador que inició el registro recibe un código secreto para saber cuándo se verificó el correo.
@@ -166,6 +166,7 @@ async function productos() {
 }
 const comentarios = () => q('SELECT id,producto_id pid,usuario_id uid,autor n,calificacion r,texto t,fecha d FROM comentarios ORDER BY id');
 const favoritos = async uid => (await q('SELECT producto_id FROM favoritos WHERE usuario_id=? ORDER BY fecha DESC,producto_id', uid)).map(r => r.producto_id);
+const favoritosPacks = async uid => (await q('SELECT f.pack_id FROM pack_favoritos f JOIN packs k ON k.id=f.pack_id WHERE f.usuario_id=? AND k.activo=1 ORDER BY f.fecha DESC,f.pack_id', uid)).map(r => r.pack_id);
 // Perfil completo que el navegador necesita (la foto subida tiene prioridad sobre la de Google).
 const perfilDe = async id => {
   const u = await one(`SELECT u.id,u.nombre,u.email,u.registro,u.telefono,u.direccion,u.foto_google,u.foto_subida,p.nombre AS prov,c.nombre AS city
@@ -314,8 +315,8 @@ const rutas = {
   'GET /api/health': async () => ({ ok: true, productos: (await one('SELECT count(*) AS n FROM productos')).n }),
   // Con sesión, la misma respuesta trae el usuario y sus favoritos (una sola petición al abrir cada página).
   'GET /api/bootstrap': async ({ user }) => {
-    const [pub, yo, favs] = await Promise.all([datosPublicos(), user ? publico(user) : null, user ? favoritos(user.id) : []]);
-    return { ...pub, usuario: yo, favoritos: favs };
+    const [pub, yo, favs, favPacks] = await Promise.all([datosPublicos(), user ? publico(user) : null, user ? favoritos(user.id) : [], user ? favoritosPacks(user.id) : []]);
+    return { ...pub, usuario: yo, favoritos: favs, favoritosPacks: favPacks };
   },
   'GET /api/comentarios': async () => ({ comentarios: await comentarios() }),
   'POST /api/comentarios': async ({ body, user }) => {
@@ -373,8 +374,11 @@ const rutas = {
     if (Object.keys(err).length) throw new HttpError(422, { error: Object.values(err)[0] });
     const claveCorreo = String(body.email).trim().toLowerCase().slice(0, 120);
     revisarFallos(claveCorreo);
-    const u = await one('SELECT id,nombre,email,password_hash,verificado FROM usuarios WHERE email=?', String(body.email).trim());
-    if (!u || !checkPassword(String(body.password || ''), u.password_hash)) { anotarFallo(claveCorreo); throw new HttpError(401, { error: 'Correo o contraseña incorrectos.' }); }
+    const u = await one('SELECT id,nombre,email,password_hash,verificado,registro FROM usuarios WHERE email=?', String(body.email).trim());
+    // Cada caso tiene su propio mensaje para que el usuario sepa qué corregir; los intentos fallidos siguen contando para el bloqueo.
+    if (!u) { anotarFallo(claveCorreo); throw new HttpError(404, { error: 'No existe una cuenta con este correo. Revisa que esté bien escrito o crea una cuenta.', noExiste: true }); }
+    if (u.registro === 'google') { anotarFallo(claveCorreo); throw new HttpError(401, { error: 'Esta cuenta se creó con Google. Usa el botón «Continuar con Google» para entrar.' }); }
+    if (!checkPassword(String(body.password || ''), u.password_hash)) { anotarFallo(claveCorreo); throw new HttpError(401, { error: 'La contraseña es incorrecta. Inténtalo de nuevo.' }); }
     fallosCorreo.delete(claveCorreo);
     if (!u.verificado) throw new HttpError(403, { error: 'Aún no verificas tu correo. Revisa tu bandeja de entrada o pide que te reenviemos el enlace.', noVerificado: true, email: u.email, seguimiento: nuevoSeguimiento(u.id) });
     return { token: await sesion(u.id), usuario: await publico(u) };
@@ -450,7 +454,19 @@ const rutas = {
   'POST /api/logout': async ({ req }) => { await run('DELETE FROM sesiones WHERE token=?', (req.headers.authorization || '').replace(/^Bearer /, '')); return { ok: true }; },
   'GET /api/yo': async ({ user }) => ({ usuario: user ? await publico(user) : null }),
 
-  'GET /api/favoritos': async ({ user }) => ({ favoritos: await favoritos(exigirSesion(user, 'Inicia sesión para ver tus favoritos.').id) }),
+  'GET /api/favoritos': async ({ user }) => { const uid = exigirSesion(user, 'Inicia sesión para ver tus favoritos.').id; return { favoritos: await favoritos(uid), favoritosPacks: await favoritosPacks(uid) }; },
+  // Packs favoritos (tabla pack_favoritos): igual que los productos, pero con el id del pack
+  'POST /api/favoritos/packs': async ({ body, user }) => {
+    exigirSesion(user, 'Inicia sesión para guardar favoritos.');
+    if (!(await one('SELECT id FROM packs WHERE id=? AND activo=1', Number(body.pack_id)))) throw new HttpError(404, { error: 'Pack no encontrado.' });
+    await run('INSERT OR IGNORE INTO pack_favoritos(usuario_id,pack_id) VALUES (?,?)', user.id, Number(body.pack_id));
+    return { favoritosPacks: await favoritosPacks(user.id) };
+  },
+  'DELETE /api/favoritos/packs/:kid': async ({ params, user }) => {
+    exigirSesion(user, 'Inicia sesión para quitar favoritos.');
+    await run('DELETE FROM pack_favoritos WHERE usuario_id=? AND pack_id=?', user.id, Number(params.kid));
+    return { favoritosPacks: await favoritosPacks(user.id) };
+  },
   'POST /api/favoritos': async ({ body, user }) => {
     exigirSesion(user, 'Inicia sesión para guardar favoritos.');
     if (!(await one('SELECT id FROM productos WHERE id=?', Number(body.producto_id)))) throw new HttpError(404, { error: 'Producto no encontrado.' });
@@ -606,6 +622,7 @@ async function actualizarCatalogo() {
     await run('INSERT INTO reglas_validacion(ambito,campo,tipo,valor,condicion,mensaje) VALUES (?,?,?,?,?,?)', ...r);
   await run('CREATE TABLE IF NOT EXISTS packs (id INTEGER PRIMARY KEY, nombre TEXT NOT NULL UNIQUE CHECK (length(trim(nombre)) BETWEEN 3 AND 80), descuento_pct INTEGER NOT NULL CHECK (descuento_pct BETWEEN 1 AND 60), activo INTEGER NOT NULL DEFAULT 1 CHECK (activo IN (0,1)))');
   await run('CREATE TABLE IF NOT EXISTS pack_items (pack_id INTEGER NOT NULL REFERENCES packs(id) ON DELETE CASCADE, producto_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE, PRIMARY KEY (pack_id, producto_id))');
+  await run("CREATE TABLE IF NOT EXISTS pack_favoritos (usuario_id INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE, pack_id INTEGER NOT NULL REFERENCES packs(id) ON DELETE CASCADE, fecha TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')), PRIMARY KEY (usuario_id, pack_id))");
   if (!(await cols('productos')).includes('precio_antes')) await run('ALTER TABLE productos ADD COLUMN precio_antes REAL CHECK (precio_antes IS NULL OR precio_antes > precio)');
   await run("UPDATE configuracion SET valor=? WHERE clave='envio_gratis_desde'", ENVIO_GRATIS);
   const filas = Object.fromEntries(filasSemilla().map(f => [f[0], f]));

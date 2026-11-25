@@ -92,6 +92,14 @@ CREATE TABLE verificaciones (
   expira     TEXT NOT NULL
 );
 
+-- Packs guardados como favoritos (la tabla packs se crea más arriba)
+CREATE TABLE pack_favoritos (
+  usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  pack_id     INTEGER NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
+  fecha       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (usuario_id, pack_id)
+);
+
 CREATE TABLE favoritos (
   usuario_id  INTEGER NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
   producto_id INTEGER NOT NULL REFERENCES productos(id) ON DELETE CASCADE,
