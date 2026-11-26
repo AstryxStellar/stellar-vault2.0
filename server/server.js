@@ -668,6 +668,7 @@ async function actualizarCatalogo() {
     });
     console.log('Productos agotados repuestos a 5 unidades.');
   }
+  await require('./comentarios-demo').aplicarComentariosDemo({ q, one, run, tx });
   if (cambios) console.log(`Catálogo actualizado: ${cambios} producto(s).`);
 }
 
